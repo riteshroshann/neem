@@ -143,6 +143,24 @@ wheels = [
 ]
 
 [[package]]
+name = "cedarpy"
+version = "4.12.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/67/3f/049213baa33f87d85e7f47ee1cd4b697fcbb4958f80593e89432a62ed70e/cedarpy-4.12.1.tar.gz", hash = "sha256:357002b436d06ad00cd24c1dc27287933af9c45af0541b0cd9d52036cccfe8c2", size = 3312816, upload-time = "2026-09-24T00:41:23.637Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/a5/f55d61f611426979dd642a1d1eea59ff547a2645c34e975d5786ced8ad75/cedarpy-4.12.1-cp312-cp312-macosx_10_12_x86_64.whl", hash = "sha256:f164ca11999e1d3a1641548d17755c3c45a5385b2590a642ef3122a1196947ca", size = 4476182, upload-time = "2026-09-24T00:41:18.54Z" },
+    { url = "https://files.pythonhosted.org/packages/46/1a/e76dd4c4073ce01a8691a9cf1687afdfc3de4bd6b74b41565105919da44d/cedarpy-4.12.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a935e3ed9e5873f88348469eb917e816335f62387d0f9ebed7058fac76c9a547", size = 4339805, upload-time = "2026-09-24T00:41:12.353Z" },
+    { url = "https://files.pythonhosted.org/packages/28/3d/18eb40e4243821375e47c8fd0af8dec6c55773e0d0e1d612a9aac5d74400/cedarpy-4.12.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e8ed70991b958f344017663f753f044070cd0e61dfd4ffe408ba05d48c48dea4", size = 4910340, upload-time = "2026-09-24T00:40:45.759Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/e6/549c4d65786d9ff6bdaa27bb33a7174b5b09d3dfbe5a9375f4778f1c20ff/cedarpy-4.12.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:14630de081249519d76a6c9aca9f677251aa5aa722a056ac4e1f365db392f1ed", size = 4897285, upload-time = "2026-09-24T00:40:58.529Z" },
+    { url = "https://files.pythonhosted.org/packages/87/83/1aff6b3419b5459a2dd486cc41404df4cc4d55d926dda8f8e49571b09a52/cedarpy-4.12.1-cp312-cp312-win_amd64.whl", hash = "sha256:74b3d6deb0d482f9645b7709016ab81dc7405be83270b10790b646a60f475518", size = 4275503, upload-time = "2026-09-24T00:41:28.489Z" },
+    { url = "https://files.pythonhosted.org/packages/da/5f/441952fb854834260d9b0b84bde1c2270320726a0a60b8d08ccf2aa3d482/cedarpy-4.12.1-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:3010ab38bd691387944d57d925aab6b743694a89a1cd3de4295421161bad1609", size = 4476177, upload-time = "2026-09-24T00:41:20.264Z" },
+    { url = "https://files.pythonhosted.org/packages/91/38/771e9fce6ca65c37cfc555ed3308703bfa2279703c525c6bbca039e90ed0/cedarpy-4.12.1-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:1c765643cc3c1472d85324f42147f3732b1c8dd47f71ff066386e7c8afe109b7", size = 4338337, upload-time = "2026-09-24T00:41:13.87Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/1e/0ff153cacd5b69c7e760b42d434ced0e987b5e3445a779e309dd44072b79/cedarpy-4.12.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:35e7446894bf8889e5c04118391b8720afee7dcd2e9d4ebecfa646674301fb96", size = 4911156, upload-time = "2026-09-24T00:40:47.803Z" },
+    { url = "https://files.pythonhosted.org/packages/03/9b/8d2bdbc51125f7176d60eb49930804f4de6759032591986e8f7156dda38e/cedarpy-4.12.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3c216ce8e4e9f8edb03154424dd99611e99533c3fb2f552147f61b0fcde5ac22", size = 4895089, upload-time = "2026-09-24T00:41:00.233Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/2b/461a485ddaccf322ce1baf8855bf47f5edc2fa67a423286d18015b580990/cedarpy-4.12.1-cp313-cp313-win_amd64.whl", hash = "sha256:80dca63da4cea16969d023daff31a15665ba54a769f633fb26ac5594b7ffd291", size = 4276334, upload-time = "2026-09-24T00:41:30.18Z" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 source = { registry = "https://pypi.org/simple" }
@@ -896,6 +914,7 @@ version = "0.1.0"
 source = { editable = "packages/neem-api" }
 dependencies = [
     { name = "boto3" },
+    { name = "cedarpy" },
     { name = "fastapi" },
     { name = "neem-core" },
     { name = "neem-data" },
@@ -907,6 +926,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "boto3", specifier = ">=1.43.111" },
+    { name = "cedarpy", specifier = ">=4.12.1" },
     { name = "fastapi", specifier = ">=0.143.0" },
     { name = "neem-core", editable = "packages/neem-core" },
     { name = "neem-data", editable = "packages/neem-data" },

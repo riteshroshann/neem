@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from functools import cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     jobs_table: str = "neem-jobs"
     jobs_queue_url: str | None = None
     cors_origins: list[str] = ["http://localhost:4321", "http://127.0.0.1:4321"]
+    # token -> {"user", "role", "schools"}; stands in for Cognito claims on the local stack
+    dev_tokens: dict[str, dict[str, Any]] = {}
     host: str = "127.0.0.1"
     port: int = 8000
 

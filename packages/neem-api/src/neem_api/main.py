@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import json
 from functools import cache
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 
 from neem_api import read_model
+from neem_api.authz import Decision, Identity, RecentJobs, check, identity_from_token
 from neem_api.jobs import (
     DynamoJobStore,
     FileJobStore,
@@ -54,8 +56,29 @@ class SailIn(BaseModel):
 
 
 class DesignIn(BaseModel):
-    trees: list[TreeIn] = Field(default_factory=list, max_length=200)
-    sails: list[SailIn] = Field(default_factory=list, max_length=40)
+    # Structural limits only; how much a caller may ask for is Cedar's decision.
+    trees: list[TreeIn] = Field(default_factory=list, max_length=1000)
+    sails: list[SailIn] = Field(default_factory=list, max_length=200)
+
+
+class ApproveIn(BaseModel):
+    job_id: str = Field(pattern=r"^[0-9a-f]{16}$")
+
+
+recent_jobs = RecentJobs()
+
+
+def identity(authorization: Annotated[str | None, Header()] = None) -> Identity:
+    token = authorization.removeprefix("Bearer ").strip() if authorization else None
+    return identity_from_token(token, settings().dev_tokens)
+
+
+Who = Annotated[Identity, Depends(identity)]
+
+
+def require(decision: Decision, what: str) -> None:
+    if not decision.allowed:
+        raise HTTPException(403, {"detail": f"not allowed to {what}", "policy": decision.reasons})
 
 
 @app.get("/health")
@@ -114,16 +137,54 @@ def child(school_id: str) -> dict[str, Any]:
     return read_model.child(school_id, settings().day)
 
 
+@app.get("/whoami")
+def whoami(who: Who) -> dict[str, Any]:
+    return {"user": who.user_id, "role": who.role, "schools": list(who.schools)}
+
+
 @app.post("/schools/{school_id}/designs", status_code=202)
-def submit_design(school_id: str, design: DesignIn) -> dict[str, str]:
+def submit_design(school_id: str, design: DesignIn, who: Who) -> dict[str, str]:
     day = settings().day
     if not read_model.has_twin(school_id, day):
         raise HTTPException(404, f"no twin for {school_id} on {day}")
+    ctx = {
+        "trees": len(design.trees),
+        "sails": len(design.sails),
+        "recent_jobs": recent_jobs.count(who.user_id),
+    }
+    require(check(who, "VerifyDesign", school_id, ctx), "verify this design")
     store, queue = backends()
-    job = new_job(school_id, design.model_dump() | {"day": day})
+    job = new_job(school_id, design.model_dump() | {"day": day, "by": who.user_id})
     store.put(job)
+    recent_jobs.record(who.user_id)
     queue.submit(job)
     return {"job_id": job["job_id"], "state": job["state"]}
+
+
+@app.post("/schools/{school_id}/approve")
+def approve(school_id: str, body: ApproveIn, who: Who) -> dict[str, Any]:
+    found = backends()[0].get(body.job_id)
+    if found is None or found["school_id"] != school_id:
+        raise HTTPException(404, f"no design {body.job_id} for {school_id}")
+    verified = found["state"] == "done"
+    require(check(who, "ApproveDesign", school_id, {"verified": verified}), "approve this plan")
+    record = {
+        "school_id": school_id,
+        "job_id": body.job_id,
+        "approved_by": who.user_id,
+        "design": found["design"],
+        "result": found.get("result"),
+    }
+    lake.path("approved", f"{school_id}.json").write_text(json.dumps(record))
+    return record
+
+
+@app.get("/schools/{school_id}/approved")
+def approved(school_id: str) -> dict[str, Any]:
+    path = lake.ROOT / "approved" / f"{school_id}.json"
+    if not path.exists():
+        raise HTTPException(404, f"no approved plan for {school_id}")
+    return json.loads(path.read_text())
 
 
 @app.get("/jobs/{job_id}")

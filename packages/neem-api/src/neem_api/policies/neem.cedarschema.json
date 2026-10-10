@@ -1,0 +1,52 @@
+{
+  "Neem": {
+    "entityTypes": {
+      "Role": {},
+      "User": {
+        "memberOfTypes": ["Role"],
+        "shape": {
+          "type": "Record",
+          "attributes": {
+            "schools": { "type": "Set", "element": { "type": "Entity", "name": "School" } }
+          }
+        }
+      },
+      "School": {
+        "shape": {
+          "type": "Record",
+          "attributes": { "government": { "type": "Boolean" } }
+        }
+      },
+      "City": {}
+    },
+    "actions": {
+      "ViewTwin": { "appliesTo": { "principalTypes": ["User"], "resourceTypes": ["School"] } },
+      "PreviewDesign": { "appliesTo": { "principalTypes": ["User"], "resourceTypes": ["School"] } },
+      "VerifyDesign": {
+        "appliesTo": {
+          "principalTypes": ["User"],
+          "resourceTypes": ["School"],
+          "context": {
+            "type": "Record",
+            "attributes": {
+              "trees": { "type": "Long" },
+              "sails": { "type": "Long" },
+              "recent_jobs": { "type": "Long" }
+            }
+          }
+        }
+      },
+      "ApproveDesign": {
+        "appliesTo": {
+          "principalTypes": ["User"],
+          "resourceTypes": ["School"],
+          "context": {
+            "type": "Record",
+            "attributes": { "verified": { "type": "Boolean" } }
+          }
+        }
+      },
+      "RunCityBatch": { "appliesTo": { "principalTypes": ["User"], "resourceTypes": ["City"] } }
+    }
+  }
+}
