@@ -63,6 +63,33 @@ def _shape(el: dict[str, Any]) -> Polygon | MultiPolygon | Point | None:
     return merged if isinstance(merged, Polygon | MultiPolygon) else None
 
 
+BOUNDARY_QUERY = '[out:json][timeout:120];relation["ISO3166-2"="IN-DL"];out geom;'
+
+
+def fetch_boundary(out: Path, tolerance_deg: float = 0.002) -> int:
+    """Delhi NCT outline as simplified GeoJSON, for the site's map. Returns vertex count."""
+    import json
+
+    from shapely.geometry import LineString
+    from shapely.ops import linemerge, polygonize
+
+    payload = post_json(OVERPASS, data={"data": BOUNDARY_QUERY})
+    rel = payload["elements"][0]
+    # A big boundary is many open ways; stitch them before closing rings.
+    lines = [
+        LineString(_ring(m["geometry"]))
+        for m in rel.get("members", [])
+        if m.get("role") == "outer" and len(m.get("geometry", [])) >= 2
+    ]
+    polys = list(polygonize(linemerge(lines)))
+    if not polys:
+        raise ValueError("no Delhi boundary in the Overpass response")
+    simple = unary_union(polys).simplify(tolerance_deg, preserve_topology=True)
+    out.write_text(json.dumps(simple.__geo_interface__))
+    polys = list(getattr(simple, "geoms", [simple]))
+    return sum(len(p.exterior.coords) for p in polys)
+
+
 def fetch_schools(out: Path) -> gpd.GeoDataFrame:
     payload = post_json(OVERPASS, data={"data": QUERY})
     rows = []

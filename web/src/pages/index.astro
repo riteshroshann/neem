@@ -1,4 +1,5 @@
 ---
+import delhi from "../data/delhi.json";
 import ranking from "../data/ranking.json";
 import twins from "../data/twins.json";
 import Base from "../layouts/Base.astro";
@@ -17,9 +18,16 @@ function km(lat: number, lon: number): number {
   return 2 * r * Math.asin(Math.sqrt(a));
 }
 
-// Dot map: equirectangular, longitude scaled by cos(latitude), no basemap.
-const lats = schools.map((s) => s.lat);
-const lons = schools.map((s) => s.lon);
+// Dot map: equirectangular, longitude scaled by cos(latitude), framed on Delhi's outline.
+type Ring = number[][];
+const boundary = delhi as { type: string; coordinates: unknown };
+const rings: Ring[] =
+  boundary.type === "Polygon"
+    ? [(boundary.coordinates as Ring[])[0] ?? []]
+    : (boundary.coordinates as Ring[][]).map((poly) => poly[0] ?? []);
+const outline = rings.flat();
+const lats = outline.map((p) => p[1] ?? 0);
+const lons = outline.map((p) => p[0] ?? 0);
 const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
 const [minLon, maxLon] = [Math.min(...lons), Math.max(...lons)];
 const k = Math.cos((28.6 * Math.PI) / 180);
@@ -27,6 +35,16 @@ const MAP_W = 1000;
 const MAP_H = Math.round((MAP_W * (maxLat - minLat)) / ((maxLon - minLon) * k));
 const px = (lon: number) => ((lon - minLon) / (maxLon - minLon)) * (MAP_W - 40) + 20;
 const py = (lat: number) => ((maxLat - lat) / (maxLat - minLat)) * (MAP_H - 40) + 20;
+const outlinePath = rings
+  .map(
+    (r) => `M${r.map((p) => `${px(p[0] ?? 0).toFixed(1)},${py(p[1] ?? 0).toFixed(1)}`).join("L")}Z`,
+  )
+  .join("");
+// Yard means span a few degrees; stretch them over the ramp so differences show.
+const lo = stats.utci_min;
+const hi = stats.utci_max;
+const dotHex = (v: number) => heatHex(32 + ((v - lo) / (hi - lo)) * 14);
+const legend = [lo, lo + (hi - lo) / 3, lo + (2 * (hi - lo)) / 3, hi];
 const byHeat = [...schools].sort((a, b) => a.utci_mean - b.utci_mean);
 const showcase = twins.find((t) => t.school_id === "osm-w1321574340") ?? twins[0];
 const pct = (v: number) => `${Math.round(v * 100)}%`;
@@ -79,12 +97,13 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
     <div class="map-text">
       <h2 class="title">Where the yards run hottest</h2>
       <p class="muted">
-        Each dot is a school, coloured by the mean feels-like temperature over its open ground
-        between 9 am and 1 pm. Ringed dots have a full 1 m heat twin you can open and redesign.
+        Each dot is a school inside Delhi's boundary, coloured by the mean feels-like temperature
+        over its open ground at 9 am, 11 am and 1 pm, from the coolest yard to the hottest. Ringed
+        dots have a full 1 m heat twin you can open and redesign.
       </p>
       <ul class="map-legend xs num">
-        {[39, 41, 43, 45].map((v) => (
-          <li><i style={`background:${heatHex(v)}`}></i>{v} °C</li>
+        {legend.map((v) => (
+          <li><i style={`background:${dotHex(v)}`}></i>{v.toFixed(1)} °C</li>
         ))}
       </ul>
     </div>
@@ -94,8 +113,9 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
       role="img"
       aria-label={`Map of ${stats.schools} Delhi schools coloured by yard heat`}
     >
+      <path d={outlinePath} fill="#f5f5f5" stroke="#d4d4d4" stroke-width="1" />
       {byHeat.map((s) => (
-        <circle cx={px(s.lon).toFixed(1)} cy={py(s.lat).toFixed(1)} r="4.2" fill={heatHex(s.utci_mean)}>
+        <circle cx={px(s.lon).toFixed(1)} cy={py(s.lat).toFixed(1)} r="4.6" fill={dotHex(s.utci_mean)}>
           <title>{`${s.name}: ${s.utci_mean.toFixed(1)} °C`}</title>
         </circle>
       ))}
