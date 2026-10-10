@@ -14,7 +14,7 @@ A physics-grade heat twin for every Delhi schoolyard: SOLWEIG computes how hot e
 - `neem-data`: OSM schools (Overpass), Overture buildings via STAC-selected files (3 of 512), Meta canopy height v2 and Copernicus DEM read as remote COGs, ERA5 forcing via Open-Meteo, scene builder, twin runner, city batch (`rank_one` + local process pool), design verification job, publish step.
 - `neem-api`: FastAPI (`/schools`, `/schools/{id}`, `/layers.bin`, `/calibration`, `/child`, `POST /designs`, `/jobs/{id}`), job ports with local (files + threads) and AWS (DynamoDB + SQS) adapters. Smoke-tested: ranking, twin summary, 2.8 MB binary layers, a design job verified in about 10 s.
 - `neem-worker`: SQS long-poll loop + Lambda handler (same `run_job`), bootstrap for table and queue.
-- `infra/Dockerfile` (one image for API and worker, Lambda Web Adapter included) and `infra/compose.yaml` (moto + bootstrap + api + 2 workers). Image build was started but not confirmed.
+- `infra/Dockerfile` (one image for API and worker, Lambda Web Adapter included) and `infra/compose.yaml` (moto + bootstrap + api + 2 workers). Image `neem:local` builds cleanly (1.89 GB); `just up` not yet run against it.
 
 ## Results so far (real runs, reproducible)
 
