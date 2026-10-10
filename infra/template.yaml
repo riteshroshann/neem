@@ -1,0 +1,212 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Neem: physics-grade heat twins for Delhi schoolyards. One container image serves the API
+  (Lambda Web Adapter), the design worker (SQS) and the city ranking (Step Functions
+  Distributed Map). Runs locally with `sam local` against LocalStack.
+
+Parameters:
+  Day:
+    Type: String
+    Default: "2026-04-27"
+  EndpointUrl:
+    Type: String
+    Default: ""
+    Description: AWS endpoint override; set to LocalStack for `sam local`, empty on AWS.
+
+Conditions:
+  UseEndpoint: !Not [!Equals [!Ref EndpointUrl, ""]]
+
+Globals:
+  Function:
+    Architectures: [x86_64]
+    MemorySize: 3008
+    Timeout: 300
+    EphemeralStorage:
+      Size: 4096
+    Environment:
+      Variables:
+        NEEM_DAY: !Ref Day
+        NEEM_JOBS: aws
+        NEEM_JOBS_TABLE: !Ref JobsTable
+        NEEM_JOBS_QUEUE_URL: !Ref JobsQueue
+        NEEM_LAKE_BUCKET: !Ref LakeBucket
+        NEEM_LAKE: /tmp/lake
+        NEEM_AWS_ENDPOINT_URL: !If [UseEndpoint, !Ref EndpointUrl, !Ref AWS::NoValue]
+        NEEM_AWS_REGION: !Ref AWS::Region
+        PYTHONUTF8: "1"
+
+Resources:
+  LakeBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: job_id, AttributeType: S }
+      KeySchema:
+        - { AttributeName: job_id, KeyType: HASH }
+
+  JobsDeadLetters:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+
+  JobsQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      VisibilityTimeout: 360
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt JobsDeadLetters.Arn
+        maxReceiveCount: 3
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Description: FastAPI behind the Lambda Web Adapter
+      MemorySize: 1024
+      Timeout: 30
+      ImageConfig:
+        Command: ["neem-api"]
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref JobsTable }
+        - SQSSendMessagePolicy: { QueueName: !GetAtt JobsQueue.QueueName }
+        - S3CrudPolicy: { BucketName: !Ref LakeBucket }
+      Events:
+        Http:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+    Metadata:
+      Dockerfile: infra/Dockerfile
+      DockerContext: ..
+      DockerTag: neem
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Description: Verifies designs with SOLWEIG
+      ImageConfig:
+        Command: ["python", "-m", "awslambdaric", "neem_worker.main.handler"]
+      Policies:
+        - DynamoDBCrudPolicy: { TableName: !Ref JobsTable }
+        - S3CrudPolicy: { BucketName: !Ref LakeBucket }
+      Events:
+        Jobs:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt JobsQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes: [ReportBatchItemFailures]
+    Metadata:
+      Dockerfile: infra/Dockerfile
+      DockerContext: ..
+      DockerTag: neem
+
+  RankFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Description: City ranking item processor (one school)
+      ImageConfig:
+        Command: ["python", "-m", "awslambdaric", "neem_data.lambda_rank.handler"]
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref LakeBucket }
+    Metadata:
+      Dockerfile: infra/Dockerfile
+      DockerContext: ..
+      DockerTag: neem
+
+  CollectFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Description: Folds ranking rows into the table
+      ImageConfig:
+        Command: ["python", "-m", "awslambdaric", "neem_data.lambda_rank.collect"]
+      Policies:
+        - S3CrudPolicy: { BucketName: !Ref LakeBucket }
+    Metadata:
+      Dockerfile: infra/Dockerfile
+      DockerContext: ..
+      DockerTag: neem
+
+  RankStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Definition:
+        Comment: Rank every school with mapped grounds, one Lambda per school
+        StartAt: RankSchools
+        States:
+          RankSchools:
+            Type: Map
+            ItemReader:
+              Resource: arn:aws:states:::s3:getObject
+              ReaderConfig: { InputType: JSON }
+              Parameters:
+                Bucket: ${LakeBucket}
+                Key.$: $.manifest
+            ItemSelector:
+              school_id.$: $$.Map.Item.Value
+              day.$: $.day
+            MaxConcurrency: 100
+            ToleratedFailurePercentage: 5
+            ItemProcessor:
+              ProcessorConfig: { Mode: DISTRIBUTED, ExecutionType: EXPRESS }
+              StartAt: RankOne
+              States:
+                RankOne:
+                  Type: Task
+                  Resource: arn:aws:states:::lambda:invoke
+                  Parameters:
+                    FunctionName: ${RankFunction}
+                    Payload.$: $
+                  Retry:
+                    - ErrorEquals: [Lambda.TooManyRequestsException, Lambda.ServiceException]
+                      IntervalSeconds: 2
+                      MaxAttempts: 4
+                      BackoffRate: 2
+                  End: true
+            ResultPath: null
+            Next: Collect
+          Collect:
+            Type: Task
+            Resource: arn:aws:states:::lambda:invoke
+            Parameters:
+              FunctionName: ${CollectFunction}
+              Payload:
+                day.$: $.day
+            End: true
+      DefinitionSubstitutions:
+        LakeBucket: !Ref LakeBucket
+        RankFunction: !GetAtt RankFunction.Arn
+        CollectFunction: !GetAtt CollectFunction.Arn
+      Policies:
+        - LambdaInvokePolicy: { FunctionName: !Ref RankFunction }
+        - LambdaInvokePolicy: { FunctionName: !Ref CollectFunction }
+        - S3ReadPolicy: { BucketName: !Ref LakeBucket }
+        - Statement:
+            - Effect: Allow
+              Action: [states:StartExecution, states:DescribeExecution, states:StopExecution]
+              Resource: "*"
+
+Outputs:
+  ApiUrl:
+    Value: !Sub https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  LakeBucketName:
+    Value: !Ref LakeBucket
+  JobsQueueUrl:
+    Value: !Ref JobsQueue
+  RankStateMachineArn:
+    Value: !Ref RankStateMachine

@@ -1,0 +1,24 @@
+[project]
+name = "neem-agent"
+version = "0.1.0"
+description = "Neem planner agent: Strands Agents designs a cooler schoolyard using the physics as tools"
+authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "neem-core",
+    "neem-data",
+    "strands-agents[ollama]>=1.59.0",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+neem-agent = "neem_agent.cli:app"
+
+[tool.uv.sources]
+neem-core = { workspace = true }
+neem-data = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"

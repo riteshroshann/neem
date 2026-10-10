@@ -65,7 +65,10 @@ def test_redelivered_job_runs_once(store: JobStore, monkeypatch: pytest.MonkeyPa
         return {"school_id": school_id, "day": day, "n": len(items)}
 
     monkeypatch.setattr("neem_data.designs.verify", fake_verify)
-    job = new_job("osm-w1", {"trees": [{"x": 1, "y": 2}], "sails": [], "day": "2026-04-27"})
+    # real coordinates are floats; DynamoDB attributes would reject them
+    job = new_job(
+        "osm-w1", {"trees": [{"x": 700123.5, "y": 3180456.25}], "sails": [], "day": "2026-04-27"}
+    )
     store.put(job)
     run_job(store, job["job_id"])
     run_job(store, job["job_id"])  # SQS delivers at least once

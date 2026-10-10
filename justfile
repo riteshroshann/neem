@@ -58,3 +58,33 @@ publish:
 
 web:
     cd web; bun run dev
+
+# Planner agent (Strands Agents on a local Ollama model)
+plan school_id budget="300000":
+    uv run neem-agent plan {{school_id}} --budget {{budget}}
+
+# LocalStack (last open-source release) for sam local and ad-hoc runs
+localstack:
+    docker run -d --rm --name neem-localstack -p 4566:4566 -e SERVICES=s3,sqs,dynamodb,stepfunctions,lambda,iam,sts,logs localstack/localstack:4.14
+
+# Create table, queue and lake bucket on LocalStack, seed the lake, queue a demo job
+seed:
+    $env:NEEM_AWS_ENDPOINT_URL='http://localhost:4566'; $env:NEEM_AWS_REGION='us-east-1'; $env:AWS_ACCESS_KEY_ID='test'; $env:AWS_SECRET_ACCESS_KEY='test'; $env:NEEM_LAKE_BUCKET='neem-lake'; $env:NEEM_LAKE_SRC='data/lake'; uv run python -m neem_worker.bootstrap --demo-job
+
+sam-validate:
+    sam validate -t infra/template.yaml --lint --region us-east-1
+
+sam-build:
+    sam build -t infra/template.yaml
+
+# Run the worker Lambda locally on a queued design, against LocalStack
+sam-worker:
+    sam local invoke WorkerFunction -t .aws-sam/build/template.yaml -e infra/events/sqs-job.json --env-vars infra/sam-env.json --docker-network neem
+
+# Run one city-ranking item Lambda locally
+sam-rank:
+    sam local invoke RankFunction -t .aws-sam/build/template.yaml -e infra/events/rank-one.json --env-vars infra/sam-env.json --docker-network neem
+
+# The API through API Gateway emulation
+sam-api:
+    sam local start-api -t .aws-sam/build/template.yaml --env-vars infra/sam-env.json --docker-network neem --port 3000

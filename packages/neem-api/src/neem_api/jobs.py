@@ -85,7 +85,9 @@ class DynamoJobStore:
         self.table = resource.Table(s.jobs_table)
 
     def put(self, job: Job) -> None:
-        self.table.put_item(Item={**job, "doc": json.dumps(job)})
+        # only keys and state as attributes: DynamoDB rejects floats, and the doc is the truth
+        item = {k: job[k] for k in ("job_id", "state", "school_id")}
+        self.table.put_item(Item=item | {"doc": json.dumps(job)})
 
     def get(self, job_id: str) -> Job | None:
         item = self.table.get_item(Key={"job_id": job_id}).get("Item")

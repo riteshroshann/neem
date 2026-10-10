@@ -6,7 +6,7 @@ authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.12,<3.14"
-dependencies = ["neem-core", "neem-data", "neem-api", "neem-worker"]
+dependencies = ["neem-core", "neem-data", "neem-api", "neem-worker", "neem-agent"]
 
 [tool.uv]
 package = false
@@ -19,6 +19,7 @@ neem-core = { workspace = true }
 neem-data = { workspace = true }
 neem-api = { workspace = true }
 neem-worker = { workspace = true }
+neem-agent = { workspace = true }
 
 [dependency-groups]
 dev = [
@@ -60,4 +61,4 @@ markers = [
 filterwarnings = ["ignore::rasterio.errors.NotGeoreferencedWarning"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["neem_core", "neem_data", "neem_api", "neem_worker"]
+known-first-party = ["neem_core", "neem_data", "neem_api", "neem_worker", "neem_agent"]

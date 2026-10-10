@@ -1,46 +1,56 @@
-# Local stack with AWS parity (ADR 0004): moto stands in for DynamoDB and SQS; the api and
-# worker containers are the images that deploy to Lambda.
+# Local stack with AWS parity (ADR 0004). LocalStack stands in for S3, SQS, DynamoDB and Step
+# Functions; the api and worker containers are the images SAM deploys to Lambda. The lake is
+# seeded into emulated S3 and read from there, as on Lambda.
 name: neem
 
 x-aws: &aws
   AWS_ACCESS_KEY_ID: test
   AWS_SECRET_ACCESS_KEY: test
-  NEEM_AWS_ENDPOINT_URL: http://moto:5000
-  NEEM_AWS_REGION: ap-south-1
+  AWS_DEFAULT_REGION: us-east-1
+  NEEM_AWS_ENDPOINT_URL: http://localstack:4566
+  NEEM_AWS_REGION: us-east-1
   NEEM_JOBS: aws
   NEEM_JOBS_TABLE: neem-jobs
-  NEEM_JOBS_QUEUE_URL: http://moto:5000/000000000000/neem-jobs
+  NEEM_JOBS_QUEUE_URL: http://localstack:4566/000000000000/neem-jobs
+  NEEM_LAKE_BUCKET: neem-lake
+  NEEM_LAKE: /tmp/lake
 
 services:
-  moto:
-    image: motoserver/moto:5.1.4
-    ports: ["5000:5000"]
+  localstack:
+    # 4.14 is the last open-source LocalStack; later images require an account token.
+    image: localstack/localstack:4.14
+    ports: ["4566:4566"]
+    environment:
+      SERVICES: s3,sqs,dynamodb,stepfunctions,lambda,iam,sts,logs
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/moto-api/')"]
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
       interval: 5s
-      retries: 20
+      retries: 30
 
   bootstrap:
     image: neem:local
     build: { context: .., dockerfile: infra/Dockerfile }
-    depends_on: { moto: { condition: service_healthy } }
-    environment: *aws
+    depends_on: { localstack: { condition: service_healthy } }
+    environment:
+      <<: *aws
+      NEEM_LAKE_SRC: /lake
+    volumes: ["../data/lake:/lake:ro"]
     command: ["python", "-m", "neem_worker.bootstrap"]
     restart: "no"
 
   api:
     image: neem:local
+    user: "10001"
     depends_on: { bootstrap: { condition: service_completed_successfully } }
     environment:
       <<: *aws
       NEEM_CORS_ORIGINS: '["http://localhost:4321","http://127.0.0.1:4321"]'
-    volumes: ["../data/lake:/lake"]
     ports: ["8000:8000"]
 
   worker:
     image: neem:local
+    user: "10001"
     depends_on: { bootstrap: { condition: service_completed_successfully } }
     environment: *aws
-    volumes: ["../data/lake:/lake"]
     command: ["neem-worker"]
     deploy: { replicas: 2 }

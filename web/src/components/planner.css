@@ -192,3 +192,21 @@
     position: static;
   }
 }
+
+.agent {
+  display: grid;
+  gap: var(--s-3);
+  padding-top: var(--s-4);
+}
+
+.agent details ol {
+  margin: var(--s-2) 0;
+  padding-left: var(--s-5);
+}
+
+.agent summary {
+  cursor: pointer;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+}

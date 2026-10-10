@@ -15,6 +15,7 @@ import boto3
 
 from neem_api.jobs import DynamoJobStore, run_job
 from neem_api.settings import settings
+from neem_data import lake
 
 log = logging.getLogger("neem.worker")
 
@@ -23,8 +24,15 @@ def _job_id(body: str) -> str:
     return str(json.loads(body)["job_id"])
 
 
+_synced = False
+
+
 def handler(event: dict[str, Any], _context: object) -> dict[str, Any]:
     """Lambda entry. Failed records are reported back so only they are retried."""
+    global _synced
+    if not _synced:  # cold start: scenes, base runs and weather from the lake bucket
+        lake.sync_from_s3(["scenes/", "runs/", "raw/met/"])
+        _synced = True
     store = DynamoJobStore(settings())
     failures = []
     for record in event.get("Records", []):

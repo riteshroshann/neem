@@ -47,6 +47,9 @@ def export_twin(school_id: str, day: str, out: Path) -> None:
     (out / "twin.json").write_text(json.dumps(summary))
     (out / "calibration.json").write_text(json.dumps(read_model.calibration(school_id, day)))
     (out / "child.json").write_text(json.dumps(read_model.child(school_id, day)))
+    plan = lake.ROOT / "plans" / f"{school_id}.json"
+    if plan.exists():  # the planner agent's verified suggestion, if it has run
+        (out / "plan.json").write_text(plan.read_text())
 
 
 def publish(day: str, web: Path) -> None:

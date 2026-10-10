@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from functools import cache
 from typing import Annotated, Any, Literal
 
@@ -26,7 +28,20 @@ from neem_api.settings import settings
 from neem_core import __version__
 from neem_data import lake
 
-app = FastAPI(title="Neem", version=__version__, summary="Heat twins for Delhi schoolyards")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # On Lambda the lake is a bucket: pull what the read side serves into /tmp once.
+    lake.sync_from_s3(["scenes/", "runs/", "rank/", "raw/met/", "raw/osm/", "approved/"])
+    yield
+
+
+app = FastAPI(
+    title="Neem",
+    version=__version__,
+    summary="Heat twins for Delhi schoolyards",
+    lifespan=lifespan,
+)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 app.add_middleware(
     CORSMiddleware, allow_origins=settings().cors_origins, allow_methods=["*"], allow_headers=["*"]
@@ -175,7 +190,9 @@ def approve(school_id: str, body: ApproveIn, who: Who) -> dict[str, Any]:
         "design": found["design"],
         "result": found.get("result"),
     }
-    lake.path("approved", f"{school_id}.json").write_text(json.dumps(record))
+    out = lake.path("approved", f"{school_id}.json")
+    out.write_text(json.dumps(record))
+    lake.upload(out)
     return record
 
 

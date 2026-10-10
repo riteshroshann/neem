@@ -1,0 +1,12 @@
+{
+  "Parameters": {
+    "AWS_ACCESS_KEY_ID": "test",
+    "AWS_SECRET_ACCESS_KEY": "test",
+    "AWS_DEFAULT_REGION": "us-east-1",
+    "NEEM_AWS_ENDPOINT_URL": "http://neem-localstack:4566",
+    "NEEM_AWS_REGION": "us-east-1",
+    "NEEM_JOBS_TABLE": "neem-jobs",
+    "NEEM_JOBS_QUEUE_URL": "http://neem-localstack:4566/000000000000/neem-jobs",
+    "NEEM_LAKE_BUCKET": "neem-lake"
+  }
+}

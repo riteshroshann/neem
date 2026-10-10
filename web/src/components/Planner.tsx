@@ -31,6 +31,26 @@ interface VerifyResult {
   seconds: number;
 }
 
+interface AgentPlan {
+  answer: string;
+  model: string;
+  budget_rs: number;
+  seconds: number;
+  steps: string[];
+  design: {
+    trees: { x: number; y: number; species: Species }[];
+    sails: { x: number; y: number; width: number; depth: number }[];
+  };
+  verified: VerifyResult | null;
+}
+
+function planItems(plan: AgentPlan): Intervention[] {
+  return [
+    ...plan.design.trees.map((t) => ({ kind: "tree" as const, ...t })),
+    ...plan.design.sails.map((t) => ({ kind: "sail" as const, ...t })),
+  ];
+}
+
 const API = (import.meta.env.PUBLIC_NEEM_API as string | undefined) ?? "http://127.0.0.1:8000";
 const TOOLS: { id: Tool; label: string }[] = [
   { id: "neem", label: "Neem" },
@@ -57,6 +77,7 @@ export default function Planner({ schoolId }: { schoolId: string }) {
   const [verify, setVerify] = useState<Verify>({ state: "idle" });
   const [mail, setMail] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [previewMs, setPreviewMs] = useState(0);
+  const [plan, setPlan] = useState<AgentPlan | null>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const baseFeatures = useRef(new Map<number, Features>());
 
@@ -67,7 +88,22 @@ export default function Planner({ schoolId }: { schoolId: string }) {
         setHour(t.hours.length - 1);
       })
       .catch((e: unknown) => setLoadError(String(e)));
+    fetch(`/twins/${schoolId}/plan.json`)
+      .then((r) => (r.ok ? (r.json() as Promise<AgentPlan>) : null))
+      .then(setPlan)
+      .catch(() => setPlan(null));
   }, [schoolId]);
+
+  const loadPlan = () => {
+    if (!plan) return;
+    const next = planItems(plan);
+    setItems(next);
+    setVerify(
+      plan.verified
+        ? { state: "done", result: plan.verified, items: next.length }
+        : { state: "idle" },
+    );
+  };
 
   const editCdsm = useMemo(
     () => (twin ? applyDesign(twin.cdsm, twin.zones, twin.summary.grid, items) : null),
@@ -395,6 +431,29 @@ export default function Planner({ schoolId }: { schoolId: string }) {
             ) : null,
           )}
         </ul>
+
+        {plan && (
+          <div className="agent rule-light">
+            <p className="label">Neem's planner suggests, for {rupees.format(plan.budget_rs)}</p>
+            <p className="small">{plan.answer}</p>
+            <button type="button" className="button quiet" onClick={loadPlan}>
+              Load this plan
+            </button>
+            <details className="xs muted">
+              <summary>How it got there</summary>
+              <ol>
+                {plan.steps.map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ol>
+              <p>
+                Strands Agents with {plan.model} running locally, {plan.seconds.toFixed(0)} s. The
+                model chooses how many trees and which kind; the tools choose where and compute
+                every number, and the final design is verified by SOLWEIG.
+              </p>
+            </details>
+          </div>
+        )}
 
         <fieldset className="tools">
           <legend className="label">Plant</legend>

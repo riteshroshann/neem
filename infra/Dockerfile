@@ -10,13 +10,12 @@ RUN uv sync --frozen --no-dev --no-editable
 
 FROM python:3.12-slim-bookworm
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN useradd --create-home --uid 10001 neem
-COPY --from=build --chown=neem /app/.venv /app/.venv
+RUN useradd --create-home --uid 10001 neem  # compose runs as neem; Lambda brings its own user
+COPY --from=build /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 PYTHONUTF8=1 \
     NEEM_LAKE=/lake NEEM_HOST=0.0.0.0 NEEM_PORT=8000 \
     AWS_LWA_PORT=8000 AWS_LWA_READINESS_CHECK_PATH=/health
-USER neem
 EXPOSE 8000
 HEALTHCHECK --interval=15s --timeout=3s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')" || exit 1
 CMD ["neem-api"]
