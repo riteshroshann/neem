@@ -24,6 +24,7 @@ neem-worker = { workspace = true }
 dev = [
     "basedpyright>=1.40.2",
     "hypothesis>=6.168.5",
+    "moto[dynamodb,sqs]>=5.2.3",
     "pytest>=9.1.1",
     "pytest-timeout>=2.4.0",
     "ruff>=0.17.0",
