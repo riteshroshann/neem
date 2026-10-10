@@ -9,6 +9,7 @@ dependencies = [
     "boto3>=1.43.111",
     "fastapi>=0.143.0",
     "neem-core",
+    "neem-data",
     "orjson>=3.13.0",
     "pydantic-settings>=2.15.0",
     "uvicorn[standard]>=0.54.0",
@@ -19,6 +20,7 @@ neem-api = "neem_api.main:run"
 
 [tool.uv.sources]
 neem-core = { workspace = true }
+neem-data = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]

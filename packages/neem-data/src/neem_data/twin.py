@@ -66,7 +66,7 @@ def run_twin(school_id: str, day: str, pixel_size: float = 1.0) -> Path:
     base = eng.run(scene, hours, site)
     planted = apply(scene, calibration_design(scene))
     probe = eng.run(planted, hours, site)
-    cal = fit([scene, planted], [base, probe], site)
+    cal = fit(scene, base, [planted], [probe], site)
 
     in_school = [
         i for i, h in enumerate(hours) if SCHOOL_HOURS[0] <= h.time.hour <= SCHOOL_HOURS[1]
@@ -92,7 +92,7 @@ def run_twin(school_id: str, day: str, pixel_size: float = 1.0) -> Path:
         "hours": [asdict(h) | {"time": h.time.isoformat()} for h in hours],
         "exposure": exp.to_json(),
         "quality": asdict(quality) | {"height_coverage": round(quality.height_coverage, 3)},
-        "calibration_mae": [round(h.mae, 2) for h in cal.hours],
+        "calibration_mae_changed": [round(h.mae_changed, 2) for h in cal.hours],
         "timings": {
             "base": base.timings,
             "probe": probe.timings,

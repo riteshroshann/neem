@@ -1,10 +1,13 @@
-"""T0: shadow casting plus a per-hour linear map to Tmrt, calibrated against SOLWEIG (ADR 0002).
+"""T0: predict how a design changes the heat field, anchored on the base SOLWEIG run (ADR 0002).
 
-    Tmrt ≈ a + b·sunlit + c·svf + d·under_canopy
+    Tmrt_edit = Tmrt_base + (F(edit) - F(base)) · coef_h
 
-sunlit comes from our own shadow caster on the edited surface, svf from the base SOLWEIG run,
-under_canopy from the edited canopy. UTCI is then a monotone per-hour lookup from Tmrt, read off
-SOLWEIG's own (Tmrt, UTCI) pairs, because air temperature, humidity and wind are uniform.
+F is cheap geometry: sunlit fraction from our shadow caster, canopy overhead, sunlit x sky
+view, and canopy nearby. Cells a design does not touch keep SOLWEIG's exact value; model
+error lives only where something changed. coef_h is fit per hour on the difference between
+a base run and a probe run with trees scattered over the yard. UTCI moves along a per-hour
+monotone lookup read off SOLWEIG's own (Tmrt, UTCI) pairs, since air temperature, humidity
+and wind are uniform over a school.
 """
 
 from __future__ import annotations
@@ -13,6 +16,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
+from scipy.ndimage import maximum_filter
 
 from neem_core.engine import HeatField
 from neem_core.met import MetHour, Site
@@ -20,6 +24,8 @@ from neem_core.scene import ZONE_BUILDING, Scene
 from neem_core.shadow import sunlit_fraction
 
 LUT_STEP = 0.5  # C of Tmrt between lookup points
+NEAR_CANOPY_CELLS = 5  # window for "canopy nearby", about the crown radius at 1 m
+FEATURE_NAMES = ("sunlit", "under_canopy", "sunlit_x_svf", "near_canopy")
 
 
 @dataclass(slots=True)
@@ -27,10 +33,10 @@ class HourModel:
     label: str
     altitude: float
     azimuth: float
-    coef: tuple[float, float, float, float]  # a, b, c, d
+    coef: tuple[float, ...]  # one per FEATURE_NAMES
     lut_tmrt: list[float]
     lut_utci: list[float]
-    mae: float  # Tmrt MAE on held-out cells, C
+    mae_changed: float  # Tmrt MAE on held-out changed cells, C
 
 
 @dataclass(slots=True)
@@ -41,6 +47,8 @@ class Calibration:
     def to_json(self) -> dict:
         return {
             "school_id": self.school_id,
+            "features": list(FEATURE_NAMES),
+            "near_canopy_cells": NEAR_CANOPY_CELLS,
             "hours": [
                 {
                     "label": h.label,
@@ -49,7 +57,7 @@ class Calibration:
                     "coef": [round(c, 5) for c in h.coef],
                     "lut_tmrt": h.lut_tmrt,
                     "lut_utci": [round(u, 3) for u in h.lut_utci],
-                    "mae": round(h.mae, 3),
+                    "mae_changed": round(h.mae_changed, 3),
                 }
                 for h in self.hours
             ],
@@ -57,21 +65,24 @@ class Calibration:
 
 
 def features(scene: Scene, svf: np.ndarray, altitude: float, azimuth: float) -> np.ndarray:
-    """(rows, cols, 4) design matrix: 1, sunlit, svf, under_canopy."""
+    """(rows, cols, 4) geometric features, see FEATURE_NAMES."""
     lit = sunlit_fraction(
         scene.dsm, scene.dem, scene.cdsm, scene.grid.pixel_size, altitude, azimuth
     )
-    under = (scene.cdsm > 0).astype(np.float32)
-    return np.stack([np.ones_like(lit), lit, svf, under], axis=-1)
+    canopy = scene.cdsm > 0
+    under = canopy.astype(np.float32)
+    near = maximum_filter(canopy, size=NEAR_CANOPY_CELLS).astype(np.float32)
+    return np.stack([lit, under, lit * svf, near], axis=-1)
 
 
 def _lut(tmrt: np.ndarray, utci: np.ndarray) -> tuple[list[float], list[float]]:
-    lo = float(np.floor(np.nanmin(tmrt) / LUT_STEP) * LUT_STEP) - 5
-    hi = float(np.ceil(np.nanmax(tmrt) / LUT_STEP) * LUT_STEP) + 5
+    lo = float(np.floor(np.nanmin(tmrt) / LUT_STEP) * LUT_STEP) - 10
+    hi = float(np.ceil(np.nanmax(tmrt) / LUT_STEP) * LUT_STEP) + 10
     grid = np.arange(lo, hi + LUT_STEP, LUT_STEP)
-    order = np.argsort(tmrt)
-    t, u = tmrt[order], utci[order]
-    # A least-squares line per hour is enough: UTCI is near-linear in Tmrt over this range.
+    ok = np.isfinite(tmrt) & np.isfinite(utci)
+    t, u = tmrt[ok], utci[ok]
+    order = np.argsort(t)
+    t, u = t[order], u[order]
     slope, intercept = np.polyfit(t, u, 1)
     knots = np.interp(grid, t, u, left=np.nan, right=np.nan)
     knots = np.where(np.isnan(knots), slope * grid + intercept, knots)
@@ -79,56 +90,59 @@ def _lut(tmrt: np.ndarray, utci: np.ndarray) -> tuple[list[float], list[float]]:
 
 
 def fit(
-    scenes: Sequence[Scene],
-    fields: Sequence[HeatField],
+    base_scene: Scene,
+    base: HeatField,
+    probe_scenes: Sequence[Scene],
+    probes: Sequence[HeatField],
     site: Site,
-    holdout: float = 0.2,
+    holdout: float = 0.25,
     seed: int = 0,
 ) -> Calibration:
-    """Fit one HourModel per hour on all non-roof cells of every (scene, field) pair.
-
-    svf always comes from the first field (the base scene), as it would in the browser.
-    """
-    base_svf = fields[0].svf
     rng = np.random.default_rng(seed)
+    keep = base_scene.zones != ZONE_BUILDING
     models: list[HourModel] = []
-    for k, hour in enumerate(fields[0].hours):
+    for k, hour in enumerate(base.hours):
         sun = hour.sun(site)
-        xs, ys, tm, ut = [], [], [], []
-        for scene, field in zip(scenes, fields, strict=True):
-            keep = (scene.zones != ZONE_BUILDING) & np.isfinite(field.tmrt[k])
-            x = features(scene, base_svf, sun.altitude, sun.azimuth)[keep]
-            xs.append(x)
-            ys.append(field.tmrt[k][keep])
-            tm.append(field.tmrt[k][keep])
-            ut.append(field.utci[k][keep])
+        f_base = features(base_scene, base.svf, sun.altitude, sun.azimuth)
+        xs, ys = [], []
+        for scene, probe in zip(probe_scenes, probes, strict=True):
+            dx = features(scene, base.svf, sun.altitude, sun.azimuth) - f_base
+            dy = probe.tmrt[k] - base.tmrt[k]
+            changed = keep & (np.abs(dx).sum(axis=-1) > 0) & np.isfinite(dy)
+            xs.append(dx[changed])
+            ys.append(dy[changed])
         X, y = np.concatenate(xs), np.concatenate(ys)
         test = rng.random(len(y)) < holdout
         coef, *_ = np.linalg.lstsq(X[~test], y[~test], rcond=None)
-        mae = float(np.mean(np.abs(X[test] @ coef - y[test])))
-        lut_t, lut_u = _lut(np.concatenate(tm), np.concatenate(ut))
+        mae = float(np.mean(np.abs(X[test] @ coef - y[test]))) if test.any() else 0.0
+        lut_t, lut_u = _lut(base.tmrt[k][keep], base.utci[k][keep])
         models.append(
             HourModel(
                 label=hour.label,
                 altitude=sun.altitude,
                 azimuth=sun.azimuth,
-                coef=(float(coef[0]), float(coef[1]), float(coef[2]), float(coef[3])),
+                coef=tuple(float(c) for c in coef),
                 lut_tmrt=lut_t,
                 lut_utci=lut_u,
-                mae=mae,
+                mae_changed=mae,
             )
         )
-    return Calibration(school_id=scenes[0].school_id, hours=models)
+    return Calibration(school_id=base_scene.school_id, hours=models)
 
 
-def predict(cal: Calibration, scene: Scene, svf: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+def predict(
+    cal: Calibration, scene: Scene, base_scene: Scene, base: HeatField
+) -> tuple[np.ndarray, np.ndarray]:
     """T0 Tmrt and UTCI for an edited scene, (hours, rows, cols) each."""
     tmrt, utci = [], []
-    for h in cal.hours:
-        x = features(scene, svf, h.altitude, h.azimuth)
-        t = x @ np.asarray(h.coef, dtype=np.float32)
+    for k, h in enumerate(cal.hours):
+        dx = features(scene, base.svf, h.altitude, h.azimuth) - features(
+            base_scene, base.svf, h.altitude, h.azimuth
+        )
+        t = base.tmrt[k] + dx @ np.asarray(h.coef, dtype=np.float32)
+        lut = np.interp(t, h.lut_tmrt, h.lut_utci) - np.interp(base.tmrt[k], h.lut_tmrt, h.lut_utci)
         tmrt.append(t)
-        utci.append(np.interp(t, h.lut_tmrt, h.lut_utci))
+        utci.append(base.utci[k] + lut)
     return np.stack(tmrt).astype(np.float32), np.stack(utci).astype(np.float32)
 
 

@@ -7,7 +7,9 @@ license = "GPL-3.0-or-later"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "boto3>=1.43.111",
+    "neem-api",
     "neem-core",
+    "neem-data",
     "pydantic-settings>=2.15.0",
 ]
 
@@ -16,6 +18,8 @@ neem-worker = "neem_worker.main:run"
 
 [tool.uv.sources]
 neem-core = { workspace = true }
+neem-data = { workspace = true }
+neem-api = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]

@@ -32,5 +32,5 @@ GDAL_HTTP_ENV: dict[str, Any] = {
     "GDAL_HTTP_MAX_RETRY": "5",
     "GDAL_HTTP_RETRY_DELAY": "2",
     "VSI_CACHE": "TRUE",
-    "GDAL_CACHEMAX": "512",
+    "GDAL_CACHEMAX": 512,
 }

@@ -74,10 +74,15 @@ def test_t0_tracks_t1_on_an_unseen_design(engine: SolweigEngine) -> None:
     base = yard()
     planted = apply(base, _trees(base, seed=1))
     unseen = apply(base, _trees(base, seed=2))
-    fields = [engine.run(s, HOURS, SITE) for s in (base, planted)]
-    cal = fit([base, planted], fields, SITE)
+    base_field = engine.run(base, HOURS, SITE)
+    probe = engine.run(planted, HOURS, SITE)
+    cal = fit(base, base_field, [planted], [probe], SITE)
     truth = engine.run(unseen, HOURS, SITE)
-    tmrt, _ = predict(cal, unseen, fields[0].svf)
+    tmrt, _ = predict(cal, unseen, base, base_field)
     ground = unseen.zones != ZONE_BUILDING
-    mae = float(np.mean(np.abs(tmrt[:, ground] - truth.tmrt[:, ground])))
-    assert mae < 2.5, f"T0 MAE {mae:.2f} C"
+    err = np.abs(tmrt - truth.tmrt)[:, ground]
+    changed = np.abs(truth.tmrt - base_field.tmrt)[:, ground] > 0.5
+    assert float(err.mean()) < 1.0, f"T0 MAE over the yard {err.mean():.2f} C"
+    assert float(err[changed].mean()) < 3.0, (
+        f"T0 MAE where the design acts {err[changed].mean():.2f} C"
+    )
