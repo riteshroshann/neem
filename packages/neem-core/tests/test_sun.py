@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+
 from neem_core.sun import sun_position
 
 DELHI = (28.6139, 77.2090, 5.5)

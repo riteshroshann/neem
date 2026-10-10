@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
 from neem_core.shadow import CANOPY_TRANSMISSIVITY, sunlit_fraction
 
 FLAT = 100.0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+
 from neem_core.grid import Grid
 from neem_core.scene import ZONE_BUILDING, ZONE_GROUND, Scene
 

@@ -5,6 +5,7 @@ import pytest
 from fixtures import yard
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
 from neem_core.interventions import ShadeSail, Tree, apply, total_cost
 from neem_core.scene import ZONE_BUILDING, Scene
 

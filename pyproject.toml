@@ -45,6 +45,7 @@ pythonVersion = "3.12"
 include = ["packages"]
 exclude = ["**/.venv", "data", "web", "recon"]
 reportMissingTypeStubs = false
+extraPaths = ["packages/neem-core/tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]
@@ -56,3 +57,6 @@ markers = [
   "network: reads public datasets over the internet",
 ]
 filterwarnings = ["ignore::rasterio.errors.NotGeoreferencedWarning"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["neem_core", "neem_data", "neem_api", "neem_worker"]

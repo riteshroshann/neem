@@ -1,6 +1,9 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 set dotenv-load := true
 
+# solweig logs non-ascii marks; the windows console default codec chokes on them
+export PYTHONUTF8 := "1"
+
 default: check
 
 # Format check, lint, types and the fast test suite (must pass before any commit)
