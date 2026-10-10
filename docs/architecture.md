@@ -128,3 +128,37 @@ Structured JSON logs with `run_id` and `job_id` on every line. Each job emits ti
 ## Testing strategy
 
 See `docs/testing.md`. In short: property-based tests for geometry invariants, differential tests between independent implementations (numba shadow caster vs SOLWEIG, Python T0 vs TypeScript T0), golden tests for SOLWEIG outputs on a fixture yard, contract tests against the OpenAPI schema, and integration tests against the local stack.
+
+## Added on day two
+
+### Authorization (ADR 0008)
+
+Cedar policies in `packages/neem-api/src/neem_api/policies/neem.cedar`, validated against a schema, guard the two endpoints that cost compute or change a record. Reads stay open. Verification is allowed within a size and rate budget (200 trees, 40 sails, 20 jobs per identity per hour). Approval needs the school's own planner (or an admin) and a verified run; a `forbid` makes the second condition hold for everyone. Identity comes from the auth layer: a server-side token table locally, Cognito claims on AWS.
+
+### Planner agent (ADR 0009)
+
+`neem-agent` runs a Strands Agents loop on a local open model (qwen3 4B via Ollama). The model picks quantities and species; tools pick locations (hottest-first, a crown apart, clear of buildings), enforce the budget, preview with T0 and verify with SOLWEIG. The site shows each school's agent plan with its verified numbers, so the public deployment carries physics results without a physics server.
+
+### Serverless shape, locally (ADR 0010)
+
+```mermaid
+flowchart LR
+  web[Vercel: static site + email function] -->|POST design| apigw[API Gateway]
+  apigw --> api[API Lambda: FastAPI via Web Adapter]
+  api -->|Cedar| api
+  api --> ddb[(DynamoDB jobs)]
+  api --> sqs[[SQS + DLQ]]
+  sqs --> worker[Worker Lambda: SOLWEIG]
+  worker --> ddb
+  worker --> s3[(S3 lake)]
+  sfn[Step Functions Distributed Map] --> rank[Rank Lambda x766]
+  rank --> s3
+  sfn --> collect[Collect Lambda]
+  collect --> s3
+```
+
+`infra/template.yaml` (SAM) is the single description. Locally, `sam build` builds the one container image, `sam local invoke` / `start-api` run the functions, and LocalStack 4.14 provides S3, SQS, DynamoDB and Step Functions with the lake seeded into its S3. The same image runs under docker compose.
+
+### Web delivery
+
+The site is static Astro on Vercel. Twin layers, calibration, child days and agent plans are static files, so the drag-a-tree preview runs entirely in the browser. One Vercel Function sends a school's plan by email through Resend, to a recipient fixed in configuration.
