@@ -1,0 +1,20 @@
+# Demo video: 3 minutes
+
+Record at 1920 x 1080, browser at 100% zoom, terminal font 16 pt. Speak slowly; every number below is from a real run.
+
+| Time | On screen | Say |
+|---|---|---|
+| 0:00–0:15 | neem-lemon.vercel.app, the headline | "On 27 April 2026 the air in Delhi reached 42 degrees. In the open yard of a government school in Rohini, it felt like 47. That's the heat a child stands in at assembly." |
+| 0:15–0:30 | Scroll to the three numbers, then the map | "Neem modelled 766 school grounds across Delhi with SOLWEIG, the radiation model urban climate researchers use. One yard in three spends more than a quarter of the morning in extreme heat stress. And one thing explains the difference almost entirely: tree canopy. The correlation is minus 0.95." |
+| 0:30–0:45 | Ranking table, search "Kendriya", open KV Sector 25 | "Every school has a heat map. Four near DTU have a full one-metre heat twin." |
+| 0:45–1:15 | Planner: scrub 7 am → 1 pm, hover the yard, plant a few neems, watch the number move | "This is every square metre of the school, hour by hour. Plant a neem and the shade and the heat update in about ten milliseconds, in the browser. Squares I don't touch keep the physics value; where I plant, it tells me how far the preview can be off." |
+| 1:15–1:35 | Click "Verify with physics" (local stack running), show the verified line; then the child chart | "Verify sends the design to the full radiation model, about ten seconds on the GPU. And this is the child: a nine-year-old's core temperature, minute by minute, through assembly, recess and the walk home. 877 millilitres of water lost by 12:45." |
+| 1:35–2:00 | Terminal: `just plan osm-w1321574340` (run beforehand, replay the output) then "Load this plan" and the 3D view | "Nobody should place 85 trees by hand. A Strands agent, running on a local open model, decides how many and which species; its tools decide where, enforce the budget and verify with SOLWEIG. 85 neems, two lakh ninety-seven thousand rupees: the yard at 1 pm drops from 46.6 to 44.8, and the child's rise from 0.93 to 0.82." |
+| 2:00–2:35 | Terminal and editor: `infra/template.yaml` (scroll the Distributed Map), `just sam-worker` against LocalStack, then `neem.cedar` and a 403 from an oversized design | "It's built on AWS open source. SAM describes the serverless stack: an API on Lambda, a worker on SQS, and a Step Functions Distributed Map that ranks every school in parallel. It runs on this laptop with SAM CLI against LocalStack. Cedar decides who may run physics and who may approve a school's plan; even an admin can't approve one that physics hasn't verified." |
+| 2:35–3:00 | Back to the site, the 3D view orbiting, then the GitHub repo | "Neem turns open data into a plan a principal can act on: where to plant, what it costs, and what it does for the child. Built by Ritesh Roshan. The code is open." |
+
+## Before recording
+
+1. `just localstack`, `just seed`, `uv run neem-api`, `cd web; bun run dev`, Ollama running.
+2. Run `just plan osm-w1321574340` once so the output is ready to show.
+3. Close notifications; hide the bookmarks bar.
