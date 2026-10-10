@@ -210,3 +210,38 @@
   display: flex;
   align-items: center;
 }
+
+.views {
+  border: 0;
+  padding: 0;
+  margin-inline: 0;
+  display: flex;
+  gap: var(--s-1);
+  margin-bottom: var(--s-3);
+}
+
+.views button {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--muted);
+  font: 500 var(--t-xs) / 1 var(--sans);
+  min-height: 32px;
+  padding: 0 var(--s-3);
+  cursor: pointer;
+}
+
+.views button.on {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.twin3d canvas {
+  width: 100%;
+  height: auto;
+  cursor: grab;
+}
+
+.twin3d p {
+  margin-top: var(--s-3);
+}

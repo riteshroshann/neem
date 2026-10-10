@@ -28,8 +28,8 @@ services:
       retries: 30
 
   bootstrap:
-    image: neem:local
-    build: { context: .., dockerfile: infra/Dockerfile }
+    image: neem-worker:local
+    build: { context: .., dockerfile: infra/Dockerfile, target: worker }
     depends_on: { localstack: { condition: service_healthy } }
     environment:
       <<: *aws
@@ -39,7 +39,8 @@ services:
     restart: "no"
 
   api:
-    image: neem:local
+    image: neem-api:local
+    build: { context: .., dockerfile: infra/Dockerfile, target: api }
     user: "10001"
     depends_on: { bootstrap: { condition: service_completed_successfully } }
     environment:
@@ -48,7 +49,7 @@ services:
     ports: ["8000:8000"]
 
   worker:
-    image: neem:local
+    image: neem-worker:local
     user: "10001"
     depends_on: { bootstrap: { condition: service_completed_successfully } }
     environment: *aws

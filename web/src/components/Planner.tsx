@@ -14,6 +14,7 @@ import {
 } from "../lib/physics";
 import { bandShares, type ChildDay, groundMean, hourLabel, loadTwin, type Twin } from "../lib/twin";
 import ChildChart from "./ChildChart";
+import Twin3D from "./Twin3D";
 import "./planner.css";
 
 type Tool = Species | "sail";
@@ -81,6 +82,7 @@ export default function Planner({ schoolId }: { schoolId: string }) {
   const [mail, setMail] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [previewMs, setPreviewMs] = useState(0);
   const [plan, setPlan] = useState<AgentPlan | null>(null);
+  const [view, setView] = useState<"map" | "3d">("map");
   const canvas = useRef<HTMLCanvasElement>(null);
   const baseFeatures = useRef(new Map<number, Features>());
 
@@ -143,7 +145,9 @@ export default function Planner({ schoolId }: { schoolId: string }) {
     if (preview) setPreviewMs(preview.ms);
   }, [preview]);
 
-  // Paint the heat field and the design overlay.
+  // Paint the heat field and the design overlay. `view` is a dependency on purpose: the canvas
+  // remounts when the 3D view closes and must be painted again.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: repaint the remounted canvas
   useEffect(() => {
     const el = canvas.current;
     if (!el || !twin || !preview || !editCdsm) return;
@@ -208,7 +212,7 @@ export default function Planner({ schoolId }: { schoolId: string }) {
       ctx.strokeRect(a, b, Math.abs(drag.x1 - drag.x0) * s, Math.abs(drag.y1 - drag.y0) * s);
       ctx.setLineDash([]);
     }
-  }, [twin, preview, editCdsm, items, drag]);
+  }, [twin, preview, editCdsm, items, drag, view]);
 
   const toMap = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -392,15 +396,38 @@ export default function Planner({ schoolId }: { schoolId: string }) {
             </button>
           ))}
         </fieldset>
-        <canvas
-          ref={canvas}
-          className={tool === "sail" ? "drag" : ""}
-          aria-label={`Heat map of ${twin.summary.name} at ${h ? hourLabel(h.time) : ""}. Click to plant, drag to place a shade sail.`}
-          onPointerDown={onDown}
-          onPointerMove={onMove}
-          onPointerUp={onUp}
-          onPointerLeave={() => setHover(null)}
-        />
+        <fieldset className="views">
+          <legend className="visually-hidden">View</legend>
+          <button
+            type="button"
+            className={view === "map" ? "on" : ""}
+            aria-pressed={view === "map"}
+            onClick={() => setView("map")}
+          >
+            Map
+          </button>
+          <button
+            type="button"
+            className={view === "3d" ? "on" : ""}
+            aria-pressed={view === "3d"}
+            onClick={() => setView("3d")}
+          >
+            3D
+          </button>
+        </fieldset>
+        {view === "3d" && editCdsm ? (
+          <Twin3D twin={twin} cdsm={editCdsm} utci={preview.utci} />
+        ) : (
+          <canvas
+            ref={canvas}
+            className={tool === "sail" ? "drag" : ""}
+            aria-label={`Heat map of ${twin.summary.name} at ${h ? hourLabel(h.time) : ""}. Click to plant, drag to place a shade sail.`}
+            onPointerDown={onDown}
+            onPointerMove={onMove}
+            onPointerUp={onUp}
+            onPointerLeave={() => setHover(null)}
+          />
+        )}
         <p className="xs muted readout num">
           {hoverValue !== undefined
             ? `Under the cursor: ${hoverValue.toFixed(1)} °C feels-like (UTCI). `

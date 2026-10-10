@@ -1,0 +1,33 @@
+[project]
+name = "neem-recon"
+version = "0.1.0"
+description = "Phone video of an empty schoolyard to a 3D point cloud and height rasters (VGGT on a local GPU)"
+authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "torch>=2.7",
+    "torchvision>=0.22",
+    "numpy>=1.26,<2",  # vggt pins numpy 1.x
+    "opencv-python-headless>=4.10,<4.12",
+    "pillow>=11",
+    "huggingface-hub>=0.30",
+    "einops>=0.8",
+    "safetensors>=0.5",
+    "scipy>=1.13",
+    "vggt",
+]
+
+# Kept out of the uv workspace: CUDA PyTorch is gigabytes and must never reach the Lambda image.
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
+vggt = { git = "https://github.com/facebookresearch/vggt" }
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

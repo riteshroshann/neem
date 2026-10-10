@@ -13,6 +13,7 @@ package = false
 
 [tool.uv.workspace]
 members = ["packages/*"]
+exclude = ["recon"]
 
 [tool.uv.sources]
 neem-core = { workspace = true }

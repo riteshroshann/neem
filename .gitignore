@@ -36,3 +36,6 @@ Thumbs.db
 # sam
 .aws-sam/
 samconfig.toml
+
+# recon working files (frames, clouds)
+recon/work/
