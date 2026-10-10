@@ -86,5 +86,19 @@ def rank(
     print(f"rank -> {out}")
 
 
+@app.command()
+def publish(
+    day: str = typer.Option("", help="defaults to the showcase day"),
+    web: str = typer.Option("web", help="site root"),
+) -> None:
+    """Export ranking, twins, palette and thumbnails for the static site."""
+    from pathlib import Path
+
+    from neem_data.forcing import showcase_day
+    from neem_data.publish import publish as run_publish
+
+    run_publish(day or showcase_day(), Path(web))
+
+
 if __name__ == "__main__":
     app()

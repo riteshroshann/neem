@@ -18,6 +18,7 @@ A physics-grade heat twin for Delhi schoolyards, built for the WeMakeDevs x AWS 
 - `recon/`: GPU container that turns phone video into a 3D model and a DSM
 - `infra/`: docker compose (local) and SAM template (AWS)
 - `docs/`: architecture and ADRs
+- `docs/STATUS.md`: what is done, what is pending, and how to resume. Read it first.
 
 ## Conventions
 - uv is not on this shell's PATH: prefix `$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"`.
