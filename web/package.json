@@ -1,0 +1,36 @@
+{
+  "name": "neem-web",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Ritesh Roshan <riteshroshansahoo01@gmail.com>",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "biome check . && astro check && bun test",
+    "fmt": "biome check --write .",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/react": "^7.0.1",
+    "@astrojs/vercel": "^11.0.13",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "astro": "^7.3.8",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "resend": "^6.32.1"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.6",
+    "@biomejs/biome": "^2.5.15",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^26.6.5",
+    "typescript": "^6"
+  }
+}

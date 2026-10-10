@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,19 @@ def thumbnail(src: Path, dst: Path) -> None:
     img.save(dst, optimize=True)
 
 
+def export_twin(school_id: str, day: str, out: Path) -> None:
+    """Everything the browser planner needs, as static files: no server for the preview."""
+    from neem_api import read_model
+
+    out.mkdir(parents=True, exist_ok=True)
+    payload, ref = read_model.layers_bin(school_id, day)
+    (out / "layers.bin").write_bytes(payload)
+    summary = read_model.twin_summary(school_id, day) | {"height_ref": ref}
+    (out / "twin.json").write_text(json.dumps(summary))
+    (out / "calibration.json").write_text(json.dumps(read_model.calibration(school_id, day)))
+    (out / "child.json").write_text(json.dumps(read_model.child(school_id, day)))
+
+
 def publish(day: str, web: Path) -> None:
     data = web / "src" / "data"
     thumbs = web / "public" / "thumbs"
@@ -60,29 +74,35 @@ def publish(day: str, web: Path) -> None:
         "lat",
         "lon",
     ]
-    rows = df[keep].round(4).to_dict(orient="records")
+    table = pd.DataFrame(df.loc[:, keep]).round(4)
+    rows: list[dict[str, Any]] = [
+        {str(k): v for k, v in rec.items()} for rec in table.to_dict(orient="records")
+    ]
     for r in rows:
         r["has_twin"] = has_twin(str(r["school_id"]), day)
         src = lake.path("rank", day, "maps", f"{r['school_id']}.npz")
         if src.exists():
             thumbnail(src, thumbs / f"{r['school_id']}.png")
 
-    canopy, heat = df["canopy_cover"], df["utci_mean"]
+    canopy = df["canopy_cover"].to_numpy(dtype=float)
+    heat = df["utci_mean"].to_numpy(dtype=float)
+    extreme = df["extreme_fraction"].to_numpy(dtype=float)
+    status = pd.read_parquet(lake.path("rank", day, "schools.parquet"))["status"].to_numpy()
     stats = {
         "day": day,
         "schools": len(df),
-        "government": int(df["government"].sum()),
-        "canopy_heat_r": round(float(canopy.corr(heat)), 3),
+        "government": int(df["government"].to_numpy(dtype=bool).sum()),
+        "canopy_heat_r": round(float(np.corrcoef(canopy, heat)[0, 1]), 3),
         "utci_min": round(float(heat.min()), 1),
-        "utci_median": round(float(heat.median()), 1),
+        "utci_median": round(float(np.median(heat)), 1),
         "utci_max": round(float(heat.max()), 1),
-        "share_quarter_extreme": round(float((df["extreme_fraction"] > 0.25).mean()), 3),
-        "failed_no_ground": int(
-            (pd.read_parquet(lake.path("rank", day, "schools.parquet"))["status"] != "ok").sum()
-        ),
+        "share_quarter_extreme": round(float((extreme > 0.25).mean()), 3),
+        "failed_no_ground": int((status != "ok").sum()),
     }
     (data / "ranking.json").write_text(json.dumps({"stats": stats, "schools": rows}))
     (data / "palette.json").write_text(json.dumps(to_json()))
     twins = [r for r in rows if r["has_twin"]]
     (data / "twins.json").write_text(json.dumps(twins))
+    for t in twins:
+        export_twin(str(t["school_id"]), day, web / "public" / "twins" / str(t["school_id"]))
     print(f"publish: {len(rows)} schools, {len(twins)} twins, r={stats['canopy_heat_r']} -> {web}")

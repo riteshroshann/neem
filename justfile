@@ -47,3 +47,14 @@ down:
 # API with reload, against the local stack
 api:
     uv run neem-api
+
+# Web: lint, types and the cross-language differential tests
+check-web:
+    cd web; bun x biome check .; bun x astro check; bun test
+
+# Export ranking, thumbnails and twin files for the site
+publish:
+    uv run neem-data publish
+
+web:
+    cd web; bun run dev

@@ -12,7 +12,7 @@ import numpy as np
 from neem_core.child import simulate
 from neem_core.exposure import exposure
 from neem_core.interventions import Intervention, ShadeSail, Tree, apply, total_cost
-from neem_core.scene import Scene
+from neem_core.scene import ZONE_GROUND, Scene
 from neem_core.schedule import MORNING_SHIFT, build_day
 from neem_data import lake
 from neem_data.forcing import met_hours, site_for
@@ -43,6 +43,7 @@ def verify(school_id: str, day: str, interventions: Sequence[Intervention]) -> d
     in_school = [i for i, h in enumerate(hours) if SCHOOL_HOURS[0] <= h.time.hour]
     exp = exposure(edited, field.tmrt[in_school], field.utci[in_school], field.sunlit[in_school])
     child = simulate(build_day(MORNING_SHIFT, hours, ground_tmrt(edited, field)))
+    ground = edited.mask(ZONE_GROUND)
     return {
         "school_id": school_id,
         "day": day,
@@ -52,7 +53,7 @@ def verify(school_id: str, day: str, interventions: Sequence[Intervention]) -> d
         "hours": [h.label for h in hours],
         "exposure": exp.to_json(),
         "child": child.to_json(),
-        "utci_by_hour": [round(float(np.nanmean(u)), 2) for u in field.utci],
+        "utci_ground_by_hour": [round(float(np.nanmean(u[ground])), 2) for u in field.utci],
         "seconds": round(time.perf_counter() - started, 2),
         "timings": field.timings,
     }

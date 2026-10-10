@@ -41,7 +41,9 @@ def calibration_design(scene: Scene, n: int = 14, seed: int = 7) -> list[Tree]:
 
 def ground_tmrt(scene: Scene, field: HeatField) -> list[float]:
     ground = scene.mask(ZONE_GROUND)
-    return [float(np.nanmedian(field.tmrt[k][ground])) for k in range(len(field.hours))]
+    # the mean, not the median: it is the expected exposure of a child anywhere in the yard,
+    # and it moves in proportion to the shade a design adds
+    return [float(np.nanmean(field.tmrt[k][ground])) for k in range(len(field.hours))]
 
 
 def save_field(path: Path, field: HeatField) -> None:

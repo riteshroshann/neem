@@ -15,7 +15,7 @@ web/dist/
 web/.astro/
 
 # Data lake, caches and run artefacts (rebuilt by the pipeline)
-data/
+/data/
 *.tif
 *.ply
 *.spz

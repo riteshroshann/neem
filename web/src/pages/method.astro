@@ -1,0 +1,167 @@
+---
+import ranking from "../data/ranking.json";
+import Base from "../layouts/Base.astro";
+
+const { stats } = ranking;
+---
+
+<Base
+  title="Method"
+  description="How Neem computes the heat a child feels in a Delhi schoolyard: open data, SOLWEIG radiation physics, a calibrated in-browser preview, a child thermoregulation model, and the tests that keep them honest."
+  path="/method"
+>
+  <section class="wrap head">
+    <h1 class="display method-title">Method</h1>
+    <p class="lede">
+      Every number on this site comes from a model run that anyone can reproduce from public data
+      with one command. Here is what the models are, where the data comes from, and where they fall
+      short.
+    </p>
+  </section>
+
+  <article class="wrap body">
+    <section class="block rule">
+      <h2 class="title">The data</h2>
+      <div class="prose">
+        <p>
+          <strong>Schools</strong> come from OpenStreetMap: 1,100 in Delhi, 823 with their grounds
+          mapped, 242 identifiable as government schools. <strong>Buildings</strong> come from the
+          Overture Maps release of September 2026, read straight from its public bucket on AWS. Only
+          three of the release's 512 files overlap Delhi, so we select them from the release's STAC
+          catalogue rather than scanning all of it: 1.9 million footprints in two minutes.
+        </p>
+        <p>
+          <strong>Trees</strong> come from Meta and WRI's global canopy height map, version 2, at
+          about 1.2 m, also on AWS Open Data. <strong>Ground height</strong> comes from the
+          Copernicus 30 m elevation model. Both are read as cloud-optimised GeoTIFFs, a few kilobytes
+          per school, never downloaded whole. <strong>Weather</strong> is ERA5 reanalysis through
+          Open-Meteo for Monday 27 April 2026, the hottest school day before Delhi's summer
+          vacation: 42.2 °C at 2 pm, 14% humidity.
+        </p>
+        <p>
+          Open data has a gap. Only about 0.5% of Delhi's buildings carry a height or a floor count,
+          so heights mostly come from a prior based on footprint size. At 11 am to 1 pm in late April
+          the sun is 70 to 75 degrees up and building shade in a yard is small, so the ranking is far
+          more sensitive to trees than to building heights. It still matters in the early morning.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
+      <h2 class="title">The physics</h2>
+      <div class="prose">
+        <p>
+          SOLWEIG, from the UMEP project used in urban climate research, computes the full radiation
+          budget of a person standing at each square metre: direct sun with shadows from buildings and
+          tree crowns, diffuse sky light weighted by how much sky the spot can see, and longwave heat
+          from sun-warmed ground and walls. Its output is mean radiant temperature. Combined with air
+          temperature, humidity and wind it gives UTCI, the feels-like temperature behind the heat
+          stress bands on every map here. We run UMEP's Rust implementation on the laptop GPU: a
+          250 m school takes about 4 seconds.
+        </p>
+        <p>
+          The ranking runs every school at 2 m for 9 am, 11 am and 1 pm: {stats.schools} schools in
+          about ten minutes. Heat twins run at 1 m for every hour from 7 am to 6 pm.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
+      <h2 class="title">Instant, then verified</h2>
+      <div class="prose">
+        <p>
+          SOLWEIG is too slow to follow a mouse. So the planner has two tiers. The preview recasts
+          shadows for the edited yard in your browser and predicts the change from the physics run,
+          not the absolute value: a per-hour linear model of how mean radiant temperature responds to
+          losing direct sun, gaining a crown overhead, and having canopy nearby, fitted for each
+          school against a second SOLWEIG run with trees scattered over the yard. Squares a design
+          doesn't touch keep their physics value exactly. Where you plant, the preview can be off by
+          several degrees at midday, and the page says by how much.
+        </p>
+        <p>
+          "Verify with physics" sends the design to a worker that runs SOLWEIG on the edited school
+          and recomputes the child's day, about 10 seconds. The API and worker run in containers
+          against an emulated AWS stack locally; the same images are built to run on AWS Lambda.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
+      <h2 class="title">The child</h2>
+      <div class="prose">
+        <p>
+          JOS-3 models the body as 17 segments, each with core, muscle, fat and skin, and simulates
+          sweating, blood flow and shivering minute by minute. We scale it to a nine-year-old (1.32 m,
+          28 kg) and walk it through the Delhi government school morning shift: assembly outdoors at
+          7:30, class, recess at 10, class, and the walk home at 12:30. Outdoors it stands in the
+          yard's median mean radiant temperature for that hour; classrooms are taken as slightly
+          cooler than outdoor air, out of the sun.
+        </p>
+        <p>
+          JOS-3 is validated on adults, and its set points do not scale down: a child-sized body rests
+          at about 38 °C core in the model. So we report the rise above the child's own resting
+          state, which is what heat-strain studies compare, and water lost to sweat and breath. The
+          model does not capture children's lower sweat rates. Read these as indicative.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
+      <h2 class="title">How we know it works</h2>
+      <div class="prose">
+        <p>
+          Property tests check geometry that must always hold: a taller building never lights a cell
+          that was in shade, and planting never adds sun anywhere. Differential tests compare
+          independent implementations: our shadow caster agrees with SOLWEIG's own shadows on more
+          than 97% of cells, the preview stays within 1 °C of SOLWEIG over a yard it has never seen,
+          and the browser's TypeScript port reproduces the Python on a shared fixture. One test exists
+          because SOLWEIG quietly rewrites the arrays it is given; the engine now passes it copies.
+          The job queue is contract-tested against emulated DynamoDB and SQS, including a redelivered
+          message running exactly once.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
+      <h2 class="title">Built on</h2>
+      <div class="prose">
+        <p>
+          SOLWEIG and UMEP (GPL-3.0), pythermalcomfort and JOS-3 (MIT), Overture Maps (ODbL), Meta and
+          WRI canopy height (CC BY 4.0), Copernicus DEM, OpenStreetMap (ODbL), ERA5 via Open-Meteo,
+          numba, DuckDB, rasterio, GeoPandas, FastAPI, Astro and React. Neem itself is GPL-3.0.
+          <a href="https://github.com/riteshroshann/neem">The source is on GitHub.</a>
+        </p>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .head {
+    padding-block: clamp(56px, 8vw, 112px) var(--s-8);
+    display: grid;
+    gap: var(--s-6);
+  }
+
+  .method-title {
+    max-width: 8ch;
+  }
+
+  .body {
+    padding-bottom: var(--section);
+  }
+
+  .block {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: var(--s-8);
+    padding-block: var(--s-7) var(--s-8);
+  }
+
+  @media (max-width: 900px) {
+    .block {
+      grid-template-columns: 1fr;
+      gap: var(--s-5);
+    }
+  }
+</style>

@@ -1,0 +1,420 @@
+---
+import ranking from "../data/ranking.json";
+import twins from "../data/twins.json";
+import Base from "../layouts/Base.astro";
+import { heatHex } from "../lib/palette";
+
+const { stats, schools } = ranking;
+const DTU = { lat: 28.7499, lon: 77.117 };
+
+function km(lat: number, lon: number): number {
+  const r = 6371;
+  const dLat = ((lat - DTU.lat) * Math.PI) / 180;
+  const dLon = ((lon - DTU.lon) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((DTU.lat * Math.PI) / 180) * Math.cos((lat * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * r * Math.asin(Math.sqrt(a));
+}
+
+// Dot map: equirectangular, longitude scaled by cos(latitude), no basemap.
+const lats = schools.map((s) => s.lat);
+const lons = schools.map((s) => s.lon);
+const [minLat, maxLat] = [Math.min(...lats), Math.max(...lats)];
+const [minLon, maxLon] = [Math.min(...lons), Math.max(...lons)];
+const k = Math.cos((28.6 * Math.PI) / 180);
+const MAP_W = 1000;
+const MAP_H = Math.round((MAP_W * (maxLat - minLat)) / ((maxLon - minLon) * k));
+const px = (lon: number) => ((lon - minLon) / (maxLon - minLon)) * (MAP_W - 40) + 20;
+const py = (lat: number) => ((maxLat - lat) / (maxLat - minLat)) * (MAP_H - 40) + 20;
+const byHeat = [...schools].sort((a, b) => a.utci_mean - b.utci_mean);
+const showcase = twins.find((t) => t.school_id === "osm-w1321574340") ?? twins[0];
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+---
+
+<Base
+  title="Neem"
+  description="Neem models how hot every square metre of 766 Delhi schoolyards feels to a child on a heatwave day, and lets planners test trees and shade before they plant."
+>
+  <section class="hero wrap">
+    <h1 class="display">The air reached 42&nbsp;°C. The schoolyard felt like&nbsp;47.</h1>
+    <div class="hero-foot">
+      <p class="lede">
+        On Monday 27 April 2026 we modelled every square metre of {stats.schools} school grounds in
+        Delhi, hour by hour, with the radiation model urban climate researchers use. Then we built a
+        twin of the child standing in them.
+      </p>
+      <p class="small muted hero-note">
+        1 pm in the open yard of {showcase?.name}, median feels-like temperature (UTCI) from a 1 m
+        SOLWEIG run. Air temperature from ERA5.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap figures rule">
+    <div>
+      <p class="figure num">{stats.schools}</p>
+      <p class="small">
+        schoolyards modelled at 2 m, three hours each. {stats.failed_no_ground} more had no open ground
+        to model.
+      </p>
+    </div>
+    <div>
+      <p class="figure num">{stats.canopy_heat_r.toFixed(2)}</p>
+      <p class="small">
+        correlation between tree canopy and yard heat. Shade from trees explains almost all of the
+        difference between a bearable yard and a dangerous one.
+      </p>
+    </div>
+    <div>
+      <p class="figure num">1 in 3</p>
+      <p class="small">
+        yards spend more than a quarter of the school morning in extreme heat stress, a feels-like
+        temperature above 46 °C.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section map-section" id="map">
+    <div class="map-text">
+      <h2 class="title">Where the yards run hottest</h2>
+      <p class="muted">
+        Each dot is a school, coloured by the mean feels-like temperature over its open ground
+        between 9 am and 1 pm. Ringed dots have a full 1 m heat twin you can open and redesign.
+      </p>
+      <ul class="map-legend xs num">
+        {[39, 41, 43, 45].map((v) => (
+          <li><i style={`background:${heatHex(v)}`}></i>{v} °C</li>
+        ))}
+      </ul>
+    </div>
+    <svg
+      class="dotmap"
+      viewBox={`0 0 ${MAP_W} ${MAP_H}`}
+      role="img"
+      aria-label={`Map of ${stats.schools} Delhi schools coloured by yard heat`}
+    >
+      {byHeat.map((s) => (
+        <circle cx={px(s.lon).toFixed(1)} cy={py(s.lat).toFixed(1)} r="4.2" fill={heatHex(s.utci_mean)}>
+          <title>{`${s.name}: ${s.utci_mean.toFixed(1)} °C`}</title>
+        </circle>
+      ))}
+      {twins.map((t) => (
+        <a href={`/school/${t.school_id}`}>
+          <circle cx={px(t.lon).toFixed(1)} cy={py(t.lat).toFixed(1)} r="11" fill="none" stroke="#0a0a0a" stroke-width="1.5"></circle>
+        </a>
+      ))}
+      <g class="dtu">
+        <circle cx={px(DTU.lon).toFixed(1)} cy={py(DTU.lat).toFixed(1)} r="3" fill="#0a0a0a"></circle>
+        <text x={(px(DTU.lon) + 8).toFixed(1)} y={(py(DTU.lat) + 4).toFixed(1)}>DTU</text>
+      </g>
+    </svg>
+  </section>
+
+  <section class="wrap section twins rule" id="twins">
+    <h2 class="title">Open a heat twin</h2>
+    <p class="muted twins-intro">
+      Four government schools near DTU, modelled at 1 m from 7 am to 1 pm. Plant neem, peepal,
+      jamun or amaltas, or put up a shade sail, and see the yard change before anyone digs.
+    </p>
+    <ol class="twin-list">
+      {twins.map((t) => (
+        <li class="rule-light">
+          <a href={`/school/${t.school_id}`} class="twin-row">
+            <img src={`/thumbs/${t.school_id}.png`} alt="" width="96" height="96" loading="lazy" />
+            <span class="twin-name">{t.name}</span>
+            <span class="small muted num">{km(t.lat, t.lon).toFixed(1)} km from DTU</span>
+            <span class="small num">{t.utci_mean.toFixed(1)} °C yard average</span>
+            <span class="small num">rank {t.rank} of {stats.schools}</span>
+          </a>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <section class="wrap section ranking rule" id="schoolyards">
+    <div class="ranking-head">
+      <h2 class="title">The ranking</h2>
+      <div class="filters">
+        <label class="visually-hidden" for="q">Find a school</label>
+        <input id="q" type="search" placeholder="Find a school" autocomplete="off" />
+        <label class="check small"><input id="gov" type="checkbox" /> Government only</label>
+      </div>
+    </div>
+    <p class="muted small">
+      Hottest first. Yard heat is the mean feels-like temperature over open ground at 9 am, 11 am and
+      1 pm; extreme is the share of those yard-hours above 46 °C. Showing the hottest 100 until you
+      search.
+    </p>
+    <table class="table num">
+      <thead>
+        <tr>
+          <th scope="col">Rank</th>
+          <th scope="col"><span class="visually-hidden">Heat map</span></th>
+          <th scope="col">School</th>
+          <th scope="col" class="r">Yard heat</th>
+          <th scope="col" class="r">Extreme</th>
+          <th scope="col" class="r">Tree cover</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        {schools.map((s, i) => (
+          <tr
+            data-name={s.name.toLowerCase()}
+            data-gov={s.government ? "1" : "0"}
+            hidden={i >= 100}
+          >
+            <td>{s.rank}</td>
+            <td><img src={`/thumbs/${s.school_id}.png`} alt="" width="40" height="40" loading="lazy" /></td>
+            <td>
+              {s.has_twin ? <a href={`/school/${s.school_id}`}>{s.name}</a> : s.name}
+              <span class="muted"> · {s.government ? "Government" : "Private or unknown"}</span>
+            </td>
+            <td class="r">{s.utci_mean.toFixed(1)} °C</td>
+            <td class="r">{pct(s.extreme_fraction)}</td>
+            <td class="r">{pct(s.canopy_cover)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+    <p class="small muted" id="empty" hidden>No school matches that search.</p>
+  </section>
+
+  <script>
+    const q = document.getElementById("q") as HTMLInputElement;
+    const gov = document.getElementById("gov") as HTMLInputElement;
+    const rows = Array.from(document.querySelectorAll<HTMLTableRowElement>("#rows tr"));
+    const empty = document.getElementById("empty") as HTMLElement;
+    function filter() {
+      const term = q.value.trim().toLowerCase();
+      let shown = 0;
+      for (const row of rows) {
+        const match =
+          (!term || (row.dataset.name ?? "").includes(term)) && (!gov.checked || row.dataset.gov === "1");
+        const visible = match && (term || gov.checked ? true : shown < 100);
+        row.hidden = !visible;
+        if (visible) shown++;
+      }
+      empty.hidden = shown > 0;
+    }
+    q.addEventListener("input", filter);
+    gov.addEventListener("change", filter);
+  </script>
+</Base>
+
+<style>
+  .hero {
+    padding-block: clamp(56px, 9vw, 128px) var(--s-8);
+  }
+
+  .hero .display {
+    max-width: 14ch;
+  }
+
+  .hero-foot {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
+    gap: var(--s-7);
+    align-items: end;
+    margin-top: var(--s-8);
+  }
+
+  .hero-note {
+    max-width: 36ch;
+  }
+
+  .figures {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-7);
+    padding-top: var(--s-6);
+  }
+
+  .figures .figure {
+    font-size: clamp(3rem, 6vw, 5rem);
+    margin-bottom: var(--s-3);
+  }
+
+  .figures .small {
+    max-width: 32ch;
+  }
+
+  .map-section {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: var(--s-8);
+    align-items: start;
+  }
+
+  .map-text {
+    display: grid;
+    gap: var(--s-4);
+    position: sticky;
+    top: 96px;
+  }
+
+  .map-legend {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: var(--s-4);
+    color: var(--muted);
+  }
+
+  .map-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+
+  .dotmap {
+    width: 100%;
+    height: auto;
+  }
+
+  .dotmap circle {
+    transition: r 120ms ease;
+  }
+
+  .dotmap a:hover circle,
+  .dotmap a:focus-visible circle {
+    stroke-width: 3;
+  }
+
+  .dtu text {
+    font: 500 14px var(--sans);
+    fill: var(--ink);
+  }
+
+  .twins-intro {
+    max-width: 52ch;
+    margin: var(--s-4) 0 var(--s-6);
+  }
+
+  .twin-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .twin-row {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+    gap: var(--s-5);
+    align-items: center;
+    padding-block: var(--s-4);
+    text-decoration: none;
+  }
+
+  .twin-row:hover .twin-name {
+    text-decoration: underline;
+  }
+
+  .twin-name {
+    font: 400 var(--t-xl) / 1.1 var(--serif);
+  }
+
+  .ranking-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: var(--s-5);
+    flex-wrap: wrap;
+    margin-bottom: var(--s-4);
+  }
+
+  .filters {
+    display: flex;
+    gap: var(--s-5);
+    align-items: center;
+  }
+
+  .filters input[type="search"] {
+    min-height: 44px;
+    width: 260px;
+    padding: 0 var(--s-3);
+    border: 1px solid var(--ink);
+    border-radius: 0;
+    font: inherit;
+    background: var(--paper);
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    cursor: pointer;
+  }
+
+  .check input {
+    accent-color: var(--ink);
+    width: 18px;
+    height: 18px;
+  }
+
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--s-5);
+    font-size: var(--t-s);
+  }
+
+  .table th {
+    text-align: left;
+    font-weight: 500;
+    font-size: var(--t-xs);
+    color: var(--muted);
+    border-bottom: 1px solid var(--ink);
+    padding: var(--s-2) var(--s-3) var(--s-2) 0;
+  }
+
+  .table td {
+    border-bottom: 1px solid var(--line);
+    padding: var(--s-2) var(--s-3) var(--s-2) 0;
+    vertical-align: middle;
+  }
+
+  .table .r {
+    text-align: right;
+  }
+
+  .table img {
+    image-rendering: pixelated;
+  }
+
+  @media (max-width: 900px) {
+    .hero-foot,
+    .map-section,
+    .figures {
+      grid-template-columns: 1fr;
+    }
+    .map-text {
+      position: static;
+    }
+    .twin-row {
+      grid-template-columns: 64px minmax(0, 1fr);
+    }
+    .twin-row img {
+      grid-row: span 4;
+      width: 64px;
+      height: 64px;
+    }
+    .table th:nth-child(2),
+    .table td:nth-child(2),
+    .table th:nth-child(6),
+    .table td:nth-child(6) {
+      display: none;
+    }
+    .filters input[type="search"] {
+      width: 100%;
+    }
+    .filters {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+  }
+</style>

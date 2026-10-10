@@ -1,0 +1,104 @@
+---
+import Planner from "../../components/Planner";
+import ranking from "../../data/ranking.json";
+import twins from "../../data/twins.json";
+import Base from "../../layouts/Base.astro";
+
+export function getStaticPaths() {
+  return twins.map((t) => ({ params: { id: t.school_id }, props: { school: t } }));
+}
+
+const { school } = Astro.props;
+const total = ranking.stats.schools;
+const pct = (v: number) => `${Math.round(v * 100)}%`;
+---
+
+<Base
+  title={school.name}
+  description={`A 1 m heat twin of ${school.name}, Delhi: how hot its grounds feel to a child on 27 April 2026, and what trees and shade would change.`}
+  path={`/school/${school.school_id}`}
+>
+  <section class="wrap head">
+    <p class="small muted"><a href="/#twins">Heat twins</a> · {school.government ? "Government school" : "School"}, Delhi</p>
+    <h1 class="title school-name">{school.name}</h1>
+    <dl class="facts num">
+      <div><dt class="label">Rank</dt><dd>{school.rank} of {total}, hottest first</dd></div>
+      <div><dt class="label">Yard heat, 9 am to 1 pm</dt><dd>{school.utci_mean.toFixed(1)} °C feels-like</dd></div>
+      <div><dt class="label">Extreme heat</dt><dd>{pct(school.extreme_fraction)} of yard-hours</dd></div>
+      <div><dt class="label">Tree cover over open ground</dt><dd>{pct(school.canopy_cover)}</dd></div>
+    </dl>
+  </section>
+
+  <section class="wrap planner-wrap rule">
+    <Planner client:only="react" schoolId={school.school_id} />
+  </section>
+
+  <section class="wrap section notes rule">
+    <h2 class="title">How to read this</h2>
+    <div class="prose">
+      <p>
+        The map is a SOLWEIG run at 1 m: shadows from every building and tree, how much sky each
+        square metre sees, and heat radiated back from hot ground and walls. Its output is the mean
+        radiant temperature, which combines with air temperature, humidity and wind into UTCI, the
+        feels-like temperature used in heat-health research.
+      </p>
+      <p>
+        When you plant, the change is previewed instantly in your browser by a fast model calibrated
+        against SOLWEIG for this school and hour. Squares you don't touch keep the physics value.
+        "Verify with physics" sends the design to the full model and replaces the preview with the
+        real answer.
+      </p>
+      <p>
+        The child twin is JOS-3, a 17-segment model of human thermoregulation, scaled to a
+        nine-year-old on the Delhi government school morning shift. It reports the rise above the
+        child's own resting temperature, because the model's absolute set points do not scale to
+        children. <a href="/method">The method page</a> has the details and the limits.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .head {
+    padding-block: var(--s-8) var(--s-6);
+    display: grid;
+    gap: var(--s-4);
+  }
+
+  .school-name {
+    max-width: 22ch;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-5);
+    margin: var(--s-4) 0 0;
+  }
+
+  .facts dd {
+    margin: var(--s-1) 0 0;
+    font-size: var(--t-s);
+  }
+
+  .planner-wrap {
+    padding-top: var(--s-6);
+    padding-bottom: var(--section);
+  }
+
+  .notes {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: var(--s-8);
+  }
+
+  @media (max-width: 900px) {
+    .facts,
+    .notes {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .notes {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

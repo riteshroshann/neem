@@ -1,0 +1,144 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description: string;
+  path?: string;
+}
+
+const { title, description, path = "/" } = Astro.props;
+const canonical = new URL(path, Astro.site).toString();
+const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : `${title} · Neem`;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="author" content="Ritesh Roshan" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap"
+    />
+  </head>
+  <body>
+    <a class="skip visually-hidden" href="#main">Skip to content</a>
+    <header class="masthead">
+      <div class="wrap bar">
+        <a class="wordmark" href="/" aria-label="Neem, home">Neem</a>
+        <nav aria-label="Primary">
+          <a href="/#schoolyards">Schoolyards</a>
+          <a href="/method">Method</a>
+        </nav>
+        <p class="dateline xs muted num">Delhi · Monday 27 April 2026 · 42.2 °C air</p>
+      </div>
+    </header>
+    <main id="main">
+      <slot />
+    </main>
+    <footer class="footer">
+      <div class="wrap foot">
+        <p class="small">
+          Neem models radiant heat with SOLWEIG on open data: Overture buildings, Meta and WRI
+          canopy height, Copernicus elevation, OpenStreetMap schools and ERA5 weather.
+        </p>
+        <p class="small">
+          <a href="https://github.com/riteshroshann/neem">Source on GitHub</a> · GPL-3.0 ·
+          Engineered by Ritesh Roshan
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
+
+<style>
+  .skip:focus {
+    position: fixed;
+    top: var(--s-3);
+    left: var(--s-3);
+    width: auto;
+    height: auto;
+    clip: auto;
+    padding: var(--s-2) var(--s-3);
+    background: var(--ink);
+    color: var(--paper);
+    z-index: 10;
+  }
+
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgb(255 255 255 / 0.88);
+    backdrop-filter: saturate(1.4) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .bar {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--s-6);
+    min-height: 56px;
+  }
+
+  .wordmark {
+    font: 400 1.75rem / 1 var(--serif);
+    letter-spacing: -0.01em;
+    text-decoration: none;
+  }
+
+  nav {
+    display: flex;
+    gap: var(--s-5);
+    font-size: var(--t-s);
+  }
+
+  nav a {
+    text-decoration: none;
+  }
+
+  nav a:hover {
+    text-decoration: underline;
+  }
+
+  .footer {
+    border-top: 1px solid var(--ink);
+    padding-block: var(--s-7) var(--s-8);
+  }
+
+  .foot {
+    display: grid;
+    gap: var(--s-3);
+    max-width: var(--page);
+  }
+
+  .foot p:first-child {
+    max-width: var(--measure);
+  }
+
+  @media (max-width: 720px) {
+    .bar {
+      grid-template-columns: auto 1fr;
+    }
+    .dateline {
+      display: none;
+    }
+    nav {
+      justify-content: flex-end;
+    }
+  }
+</style>

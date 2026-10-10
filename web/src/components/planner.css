@@ -1,0 +1,194 @@
+.planner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: var(--s-7) var(--s-8);
+  align-items: start;
+}
+
+.planner-msg {
+  padding-block: var(--s-9);
+  color: var(--muted);
+}
+
+.planner-map canvas {
+  width: 100%;
+  cursor: crosshair;
+  touch-action: none;
+  background: var(--wash);
+}
+
+.planner-map canvas.drag {
+  cursor: cell;
+}
+
+.hours {
+  border: 0;
+  padding: 0;
+  margin-inline: 0;
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--ink);
+  margin-bottom: var(--s-4);
+}
+
+.hours button,
+.tools button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: 500 var(--t-s) / 1 var(--sans);
+  padding: var(--s-3) var(--s-3) var(--s-3) 0;
+  margin-right: var(--s-4);
+  min-height: 44px;
+  cursor: pointer;
+  border-top: 2px solid transparent;
+  margin-top: -1px;
+}
+
+.hours button:hover,
+.tools button:hover {
+  color: var(--ink);
+}
+
+.hours button.on,
+.tools button.on {
+  color: var(--ink);
+  border-top-color: var(--ink);
+}
+
+.readout {
+  margin-top: var(--s-3);
+  min-height: 1.6em;
+}
+
+.planner-side {
+  display: grid;
+  gap: var(--s-4);
+  position: sticky;
+  top: 80px;
+}
+
+.planner-side .figure {
+  font-size: clamp(3.5rem, 6vw, 5.5rem);
+  line-height: 0.95;
+}
+
+.unit {
+  font-size: 0.45em;
+  margin-left: 0.08em;
+  vertical-align: 0.9em;
+}
+
+.delta {
+  color: var(--muted);
+  min-height: 2.6em;
+}
+
+.bands {
+  display: flex;
+  height: 10px;
+  gap: 2px;
+}
+
+.bands span {
+  flex-basis: 0;
+  min-width: 0;
+}
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-4);
+  color: var(--muted);
+}
+
+.legend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+}
+
+.tools {
+  border: 0;
+  padding: 0;
+  margin: var(--s-3) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  border-top: 1px solid var(--line);
+}
+
+.tools legend {
+  float: left;
+  width: 100%;
+  padding-top: var(--s-3);
+}
+
+.design {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--s-3);
+  padding-top: var(--s-4);
+}
+
+.design .row {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.design .button {
+  padding: 0 var(--s-4);
+}
+
+.status {
+  min-height: 2.6em;
+}
+
+.planner-child {
+  grid-column: 1 / -1;
+  padding-top: var(--s-7);
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: var(--s-8);
+}
+
+.child-numbers {
+  display: grid;
+  gap: var(--s-6);
+  align-content: start;
+}
+
+.child-chart {
+  margin: 0;
+}
+
+.child-chart svg {
+  width: 100%;
+  height: auto;
+}
+
+.child-chart .seg,
+.child-chart .tick {
+  font: 400 11px var(--sans);
+  fill: var(--muted);
+}
+
+.child-chart figcaption {
+  margin-top: var(--s-3);
+  max-width: var(--measure);
+}
+
+@media (max-width: 960px) {
+  .planner,
+  .planner-child {
+    grid-template-columns: 1fr;
+  }
+  .planner-side {
+    position: static;
+  }
+}
