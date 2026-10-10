@@ -51,7 +51,10 @@ function planItems(plan: AgentPlan): Intervention[] {
   ];
 }
 
-const API = (import.meta.env.PUBLIC_NEEM_API as string | undefined) ?? "http://127.0.0.1:8000";
+// Dev talks to the local API; a production build without PUBLIC_NEEM_API has no physics server.
+const API =
+  (import.meta.env.PUBLIC_NEEM_API as string | undefined) ??
+  (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
 const TOOLS: { id: Tool; label: string }[] = [
   { id: "neem", label: "Neem" },
   { id: "peepal", label: "Peepal" },
@@ -271,6 +274,15 @@ export default function Planner({ schoolId }: { schoolId: string }) {
   }, []);
 
   const runVerify = async () => {
+    if (!API) {
+      // The public site has no physics server; the planner's suggested plans carry verified results.
+      setVerify({
+        state: "error",
+        message:
+          "Physics verification runs on the local stack (SOLWEIG on a GPU). Load Neem's plan to see a design already verified, or run the stack from the repository.",
+      });
+      return;
+    }
     setVerify({ state: "running", started: performance.now() });
     try {
       const body = {

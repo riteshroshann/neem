@@ -10,7 +10,11 @@ RUN uv sync --frozen --no-dev --no-editable
 
 FROM python:3.12-slim-bookworm
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
-RUN useradd --create-home --uid 10001 neem  # compose runs as neem; Lambda brings its own user
+# rasterio wheels bundle GDAL but link the system expat; numba and scipy want libgomp
+RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+# compose runs as neem; Lambda brings its own user, and sam local needs a root build step
+RUN useradd --create-home --uid 10001 neem
 COPY --from=build /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 PYTHONUTF8=1 \

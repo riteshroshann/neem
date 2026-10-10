@@ -1,7 +1,4 @@
-import type { APIRoute } from "astro";
 import { Resend } from "resend";
-
-export const prerender = false;
 
 // Without a verified domain Resend only delivers from its test sender to the account owner, so
 // the recipient is fixed by configuration and never taken from the request.
@@ -87,9 +84,10 @@ function render(p: Plan): { subject: string; html: string } {
   return { subject: `Heat plan: ${p.school}`, html };
 }
 
-export const POST: APIRoute = async ({ request }) => {
-  const key = import.meta.env.RESEND_API_KEY ?? process.env.RESEND_API_KEY;
-  const to = import.meta.env.RESEND_TO ?? process.env.RESEND_TO;
+/** Vercel Function (web handler signature): POST /api/email. */
+export async function POST(request: Request): Promise<Response> {
+  const key = process.env.RESEND_API_KEY;
+  const to = process.env.RESEND_TO;
   if (!key || !to) return new Response("email is not configured", { status: 503 });
   let body: Record<string, unknown>;
   try {
@@ -105,4 +103,4 @@ export const POST: APIRoute = async ({ request }) => {
   return new Response(JSON.stringify({ sent: true }), {
     headers: { "content-type": "application/json" },
   });
-};
+}
