@@ -6,6 +6,7 @@ import math
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 import duckdb
 import geopandas as gpd
@@ -52,12 +53,12 @@ def _schools() -> gpd.GeoDataFrame:
     return gpd.read_parquet(lake.path(*lake.SCHOOLS))
 
 
-def school_row(school_id: str) -> gpd.GeoSeries:
+def school_row(school_id: str) -> dict[str, Any]:
     df = _schools()
     hit = df[df.school_id == school_id]
     if hit.empty:
         raise KeyError(f"unknown school {school_id}")
-    return hit.iloc[0]
+    return hit.iloc[0].to_dict()
 
 
 def grid_for(geom_utm: BaseGeometry, pixel_size: float) -> Grid:
@@ -100,7 +101,7 @@ def resolve_heights(b: gpd.GeoDataFrame) -> tuple[np.ndarray, int]:
 
 def build_scene(school_id: str, pixel_size: float = 1.0) -> tuple[Scene, BuildQuality]:
     row = school_row(school_id)
-    geom = gpd.GeoSeries([row.geometry], crs="EPSG:4326").to_crs(UTM43N).iloc[0]
+    geom = gpd.GeoSeries([row["geometry"]], crs="EPSG:4326").to_crs(UTM43N).iloc[0]
     grid = grid_for(geom, pixel_size)
     transform = Affine(*grid.transform)
 

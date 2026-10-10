@@ -48,5 +48,43 @@ def weather(
     lake.path("raw", "met", "showcase.txt").write_text(hottest.isoformat())
 
 
+@app.command()
+def scene(school_id: str, pixel: float = typer.Option(1.0, help="cell size, metres")) -> None:
+    """Build and save the surface model for one school."""
+    from neem_data.scene_builder import build_scene
+
+    s, q = build_scene(school_id, pixel)
+    s.save(lake.scene_dir(school_id))
+    print(
+        f"{s.name}: {s.grid.rows}x{s.grid.cols} at {pixel} m, {q.buildings} buildings "
+        f"({q.height_coverage:.0%} with height), canopy over {q.canopy_cover:.0%} of open ground"
+    )
+
+
+@app.command()
+def twin(school_id: str, day: str = typer.Option("", help="defaults to the showcase day")) -> None:
+    """Run the full 1 m twin: SOLWEIG day, calibration, exposure and the child's day."""
+    from neem_data.forcing import showcase_day
+    from neem_data.twin import run_twin
+
+    out = run_twin(school_id, day or showcase_day())
+    print(f"twin -> {out}")
+
+
+@app.command()
+def rank(
+    day: str = typer.Option("", help="defaults to the showcase day"),
+    workers: int = typer.Option(4, help="local processes"),
+    limit: int = typer.Option(0, help="stop after this many schools (0 for all)"),
+    government: bool = typer.Option(False, help="government schools only"),
+) -> None:
+    """Rank every school with mapped grounds by heat exposure (resumable)."""
+    from neem_data.batch import LocalPoolExecutor, rank_city
+    from neem_data.forcing import showcase_day
+
+    out = rank_city(day or showcase_day(), LocalPoolExecutor(workers), limit or None, government)
+    print(f"rank -> {out}")
+
+
 if __name__ == "__main__":
     app()
