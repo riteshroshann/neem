@@ -31,7 +31,7 @@ A physics-grade heat twin for every Delhi schoolyard: SOLWEIG computes how hot e
 - T0 preview error on cells a design changes is 4 to 5.6 C at midday on real schools (exact elsewhere). Options: more probe designs in calibration, add features (crown-edge, SVF change under new canopy), or show the band honestly and rely on the 6 s physics verification. The UI must show the band.
 - Canopy warp of uint8 tiles logs "value 0 changed to 1" (GDAL nodata clash). Harmless because canopy under 2 m is zeroed; clean up by warping with nodata 255.
 - Overture heights are mostly priors. Possible improvement: GHSL built-up height (100 m) as a better prior.
-- `publish.py`, `palette.py` and the `publish` CLI command are written but **not yet run or tested**. basedpyright currently reports 13 type errors there (pandas typing:      14 neem_datapublish.py;); `just check` fails until they are fixed. Fix these first.
+- `publish.py`, `palette.py` and the `publish` CLI command are written but **not yet run or tested**. basedpyright currently reports 13 type errors there (all in `neem_data/publish.py`, pandas typing); `just check` fails until they are fixed. Fix these first.
 
 ## Pending, in order
 
