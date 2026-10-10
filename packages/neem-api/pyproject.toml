@@ -1,0 +1,25 @@
+[project]
+name = "neem-api"
+version = "0.1.0"
+description = "Neem HTTP API: schools, heat layers, simulations, child twin"
+authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "boto3>=1.43.111",
+    "fastapi>=0.143.0",
+    "neem-core",
+    "orjson>=3.13.0",
+    "pydantic-settings>=2.15.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+neem-api = "neem_api.main:run"
+
+[tool.uv.sources]
+neem-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"

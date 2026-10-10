@@ -1,0 +1,22 @@
+[project]
+name = "neem-worker"
+version = "0.1.0"
+description = "Neem job worker: verifies designs with SOLWEIG and runs optimisation jobs from the queue"
+authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "boto3>=1.43.111",
+    "neem-core",
+    "pydantic-settings>=2.15.0",
+]
+
+[project.scripts]
+neem-worker = "neem_worker.main:run"
+
+[tool.uv.sources]
+neem-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"

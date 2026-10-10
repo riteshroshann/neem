@@ -1,0 +1,30 @@
+[project]
+name = "neem-data"
+version = "0.1.0"
+description = "Neem data pipeline: AWS Open Data ingest, scene building, city-scale batch"
+authors = [{ name = "Ritesh Roshan", email = "riteshroshansahoo01@gmail.com" }]
+license = "GPL-3.0-or-later"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    "boto3>=1.43.111",
+    "duckdb>=1.5.6",
+    "geopandas>=1.2.0",
+    "httpx>=0.28.1",
+    "neem-core",
+    "pyarrow>=26.0.0",
+    "pyproj>=3.8.0",
+    "rasterio>=1.5.2",
+    "shapely>=2.2.0",
+    "tenacity>=9.2.1",
+    "typer>=0.27.3",
+]
+
+[project.scripts]
+neem-data = "neem_data.cli:app"
+
+[tool.uv.sources]
+neem-core = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.12.23,<0.13.0"]
+build-backend = "uv_build"
