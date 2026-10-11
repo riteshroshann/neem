@@ -23,20 +23,32 @@ SPECIES: dict[str, tuple[float, float, int]] = {
 
 SAIL_COST_PER_M2 = 1_800  # HDPE shade sail with steel posts, installed
 
+# A neem's canopy by age, (height m, crown radius m): our assumption, inside published ranges.
+# Neem grows fast, about 7 m in five years, and reaches 15 to 20 m with a crown 10 to 20 m
+# wide when mature. Used to show what one planting becomes; the planner always plans at five years.
+NEEM_BY_AGE: dict[int, tuple[float, float]] = {
+    1: (2.0, 0.75),
+    5: SPECIES["neem"][:2],
+    10: (10.0, 5.0),
+    20: (13.0, 6.0),
+    30: (15.0, 7.0),
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Tree:
     x: float  # map coordinates, metres
     y: float
     species: Species = "neem"
+    size: tuple[float, float] | None = None  # (height, crown radius) when not the five-year canopy
 
     @property
     def height(self) -> float:
-        return SPECIES[self.species][0]
+        return self.size[0] if self.size else SPECIES[self.species][0]
 
     @property
     def radius(self) -> float:
-        return SPECIES[self.species][1]
+        return self.size[1] if self.size else SPECIES[self.species][1]
 
     @property
     def cost(self) -> int:

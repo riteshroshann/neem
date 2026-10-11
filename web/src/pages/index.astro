@@ -3,6 +3,7 @@ import Compare from "../components/Compare.astro";
 import Globe from "../components/Globe.astro";
 import Pipeline from "../components/Pipeline.astro";
 import Scales from "../components/Scales.astro";
+import Yard3D from "../components/Yard3D.astro";
 import ranking from "../data/ranking.json";
 import showcase from "../data/showcase.json";
 import twins from "../data/twins.json";
@@ -29,6 +30,8 @@ const map = delhiMap(1000);
 const { cell } = showcase;
 const { bare, leafy } = CANOPY_QUARTERS;
 const DEFAULT_ROWS = 20;
+// the list shows schools OpenStreetMap names; unnamed ones still count in every figure and map
+const listed = schools.filter((s) => schoolName(s.name) !== "Unnamed school");
 
 // labels in HTML over the map stay readable on a phone; the leader lines scale with the SVG
 const at = (x: number, y: number) =>
@@ -71,6 +74,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
         <a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a>
         <a class="button quiet" href="#map">See all {stats.schools} yards</a>
         <a class="story-link" href="/story">Read the story</a>
+        <a class="story-link" href="#yard3d">Watch it in 3D</a>
       </div>
       <p class="xs muted hero-note">
         {temp(cell.utci)} feels-like (UTCI) at 1&nbsp;pm on {longDate(showcase.day)}, at the centre
@@ -108,6 +112,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
 
   <Scales />
   <Compare />
+  <Yard3D />
   <Pipeline />
 
   <section class="wrap section map-section rule" id="map">
@@ -199,7 +204,9 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     <p class="muted small">
       Yard heat is the mean feels-like temperature over open ground at 9&nbsp;am, 11&nbsp;am and
       1&nbsp;pm; extreme is the share of those yard-hours above 46&nbsp;°C.{" "}
-      <span id="count" aria-live="polite">Showing the hottest {DEFAULT_ROWS}. Search to find any of the {stats.schools}.</span>
+      Schools without a name in OpenStreetMap are left out of this list but counted everywhere
+      else.
+      <span id="count" aria-live="polite">Showing the hottest {DEFAULT_ROWS}. Search to find any of the {listed.length}.</span>
     </p>
     <table class="table num">
       <thead>
@@ -213,7 +220,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
         </tr>
       </thead>
       <tbody id="rows">
-        {schools.map((s, i) => (
+        {listed.map((s, i) => (
           <tr
             data-name={schoolName(s.name).toLowerCase()}
             data-gov={s.government ? "1" : "0"}
@@ -224,8 +231,6 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
             <td>
               {s.has_twin ? (
                 <a href={`/school/${s.school_id}`}>{schoolName(s.name)}</a>
-              ) : schoolName(s.name) === "Unnamed school" ? (
-                <span class="muted">Unnamed school</span>
               ) : (
                 schoolName(s.name)
               )}

@@ -13,7 +13,14 @@ import numpy as np
 from neem_core.child import simulate
 from neem_core.engine import HeatField
 from neem_core.exposure import exposure
-from neem_core.interventions import Intervention, ShadeSail, Tree, apply, total_cost
+from neem_core.interventions import (
+    NEEM_BY_AGE,
+    Intervention,
+    ShadeSail,
+    Tree,
+    apply,
+    total_cost,
+)
 from neem_core.scene import ZONE_GROUND, Scene
 from neem_core.schedule import MORNING_SHIFT, build_day
 from neem_data import lake
@@ -49,6 +56,25 @@ def verify_plan(school_id: str, day: str) -> Path:
     save_field(out / "field.npz", field)
     (out / "meta.json").write_text(json.dumps(result, indent=2))
     return out
+
+
+def grow_plan(school_id: str, day: str, ages: Sequence[int]) -> list[Path]:
+    """The planner's plan as it grows: the same trees at each age, same weather, full SOLWEIG."""
+    plan = json.loads((lake.ROOT / "plans" / f"{school_id}.json").read_text())
+    if plan["day"] != day:
+        raise ValueError(f"plan for {school_id} is for {plan['day']}, not {day}")
+    trees = [t for t in parse(plan["design"]) if isinstance(t, Tree) and t.species == "neem"]
+    outs = []
+    for age in ages:
+        grown = [Tree(t.x, t.y, t.species, NEEM_BY_AGE[age]) for t in trees]
+        result, field = _verify(school_id, day, grown)
+        out = lake.run_dir(school_id, f"{day}-plan-y{age}")
+        out.mkdir(parents=True, exist_ok=True)
+        save_field(out / "field.npz", field)
+        size = {"height_m": NEEM_BY_AGE[age][0], "crown_radius_m": NEEM_BY_AGE[age][1]}
+        (out / "meta.json").write_text(json.dumps(result | {"age_years": age} | size, indent=2))
+        outs.append(out)
+    return outs
 
 
 def _verify(

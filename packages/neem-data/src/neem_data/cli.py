@@ -103,6 +103,21 @@ def verify_plan(
 
 
 @app.command()
+def grow(
+    school_id: str = typer.Argument("osm-w1321574340", help="a school with a stored plan"),
+    ages: str = typer.Option("1,10,20,30", help="tree ages in years, comma separated"),
+    day: str = typer.Option("", help="defaults to the showcase day"),
+) -> None:
+    """Run the stored plan through SOLWEIG with its trees at several ages."""
+    from neem_data.designs import grow_plan
+    from neem_data.forcing import showcase_day
+
+    years = [int(a) for a in ages.split(",") if a.strip()]
+    for out in grow_plan(school_id, day or showcase_day(), years):
+        print(f"grow {school_id} -> {out}")
+
+
+@app.command()
 def publish(
     day: str = typer.Option("", help="defaults to the showcase day"),
     web: str = typer.Option("web", help="site root"),

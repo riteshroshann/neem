@@ -1,0 +1,219 @@
+---
+// The yard in 3D: a rendered loop of the KV twin with the planner's neems growing in (tools/three-d),
+// and the phone-video pipeline that will give every yard measured heights.
+import showcase from "../data/showcase.json";
+import { temp } from "../lib/format";
+
+const { plan, school_id: id, name } = showcase;
+const [yardToday, yardPlan] = plan.yard_1pm as [number, number];
+
+// each step's glyph is a 5 x 5 patch of cells: "#" filled, "+" accent, "." empty
+const steps = [
+  {
+    name: "Walk the yard",
+    text: "A 60 to 90 second phone video of the empty yard. Neem keeps the sharpest, best spread frames.",
+    glyph: [".###.", ".#.#.", ".#.#.", ".#+#.", ".###."],
+  },
+  {
+    name: "Reconstruct",
+    text: "VGGT, a 3D vision model, turns those frames into a dense, coloured point cloud on the laptop GPU.",
+    glyph: ["#...#", "..#..", ".#.#.", "#.+..", "..#.#"],
+  },
+  {
+    name: "Measure",
+    text: "The cloud is levelled, scaled against the mapped buildings, and laid on the same 1 m grid SOLWEIG runs on. Colour tells trees from roofs.",
+    glyph: ["#####", "#.+.#", "#####", "#.#.#", "#####"],
+  },
+  {
+    name: "Next: Gaussian splats",
+    text: "The same footage, trained into a Gaussian splat you can walk through in the browser.",
+    glyph: [".+.+.", "+#+#+", ".+#+.", "+#+#+", ".+.+."],
+  },
+];
+---
+
+<div class="night yard3d-band" id="yard3d">
+  <section class="wrap section yard3d" aria-labelledby="yard3d-title">
+    <div class="yard3d-head">
+      <p class="kicker">The yard in three dimensions</p>
+      <h2 class="title" id="yard3d-title">Watch the shade arrive</h2>
+      <p class="muted lede-sm">
+        {name} at 1&nbsp;pm, built from open data. The planner's {plan.trees} neems grow in, and
+        the ground takes SOLWEIG's verified map: {temp(yardToday)} becomes {temp(yardPlan)}.
+      </p>
+    </div>
+
+    <figure class="film">
+      <video
+        data-yard3d
+        muted
+        loop
+        playsinline
+        preload="none"
+        poster="/media/kv-3d.jpg"
+        width="1280"
+        height="800"
+        aria-label={`A 3D model of ${name} turning slowly as ${plan.trees} neem trees grow in and the yard cools`}
+      >
+        <source src="/media/kv-3d.webm" type="video/webm" />
+        <source src="/media/kv-3d.mp4" type="video/mp4" />
+      </video>
+      <figcaption class="xs muted">
+        Roofs from Overture and Copernicus heights, crowns from Meta and WRI canopy height, ground
+        coloured by feels-like temperature from two SOLWEIG runs. <a href={`/school/${id}`}>Turn it yourself in the 3D view</a>.
+      </figcaption>
+    </figure>
+
+    <div class="recon">
+      <p class="kicker">Next: from a phone video</p>
+      <p class="small recon-lede">
+        Open data knows the height of only about 0.5% of Delhi's buildings. A phone can measure one
+        yard at a time.
+      </p>
+      <ol class="steps">
+        {steps.map((s, i) => (
+          <li>
+            <span class="glyph" aria-hidden="true">
+              {s.glyph.join("").split("").map((c) => <i data-c={c}></i>)}
+            </span>
+            <span>
+              <span class="step-name">{String(i + 1).padStart(2, "0")} · {s.name}</span>
+              <span class="small muted step-text">{s.text}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p class="xs muted">
+        The reconstruction pipeline is built and tested in <code>recon/</code>; the first real
+        schoolyard video is next.
+      </p>
+    </div>
+  </section>
+</div>
+
+<script>
+  // play only while on screen, and not at all for people who ask for less motion
+  for (const video of document.querySelectorAll<HTMLVideoElement>("[data-yard3d]")) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      video.controls = true;
+      continue;
+    }
+    new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) video.play().catch(() => (video.controls = true));
+        else video.pause();
+      },
+      { threshold: 0.25 },
+    ).observe(video);
+  }
+</script>
+
+<style>
+  .yard3d {
+    display: grid;
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+    grid-template-areas:
+      "head head"
+      "film recon";
+    gap: var(--s-7) var(--s-8);
+    align-items: start;
+  }
+
+  .yard3d-head {
+    grid-area: head;
+    display: grid;
+    gap: var(--s-3);
+    max-width: 62ch;
+  }
+
+  .lede-sm {
+    font-size: var(--t-body);
+  }
+
+  .film {
+    grid-area: film;
+    margin: 0;
+    display: grid;
+    gap: var(--s-3);
+  }
+
+  video {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+
+  .film a {
+    color: var(--ink);
+  }
+
+  .recon {
+    grid-area: recon;
+    display: grid;
+    gap: var(--s-4);
+    align-content: start;
+  }
+
+  .recon-lede {
+    max-width: 40ch;
+  }
+
+  .steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-5);
+  }
+
+  .steps li {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: var(--s-4);
+    align-items: start;
+  }
+
+  .glyph {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    width: 30px;
+    height: 30px;
+    margin-top: 2px;
+  }
+
+  .glyph i[data-c="#"] {
+    background: var(--ink);
+  }
+
+  .glyph i[data-c="+"] {
+    background: var(--heat-very-strong);
+  }
+
+  .step-name {
+    display: block;
+    font: 400 var(--t-l) / 1.15 var(--serif);
+    margin-bottom: var(--s-1);
+  }
+
+  .step-text {
+    display: block;
+  }
+
+  code {
+    font: 500 0.95em var(--sans);
+    color: var(--ink);
+  }
+
+  @media (max-width: 1000px) {
+    .yard3d {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "head"
+        "film"
+        "recon";
+    }
+  }
+</style>

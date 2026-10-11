@@ -210,9 +210,14 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     margin-top: var(--s-8);
   }
 
+  /* the strip keeps its own proportions (320 x 44 cells) on wide screens, so nothing is cut;
+     on phones it keeps a readable height and crops the sides instead */
   .ground {
+    display: block;
     width: 100%;
-    height: clamp(120px, 13vw, 200px);
+    height: max(110px, calc(100vw * 44 / 320));
+    object-fit: cover;
+    object-position: 50% 100%;
     margin-bottom: -1px;
   }
 

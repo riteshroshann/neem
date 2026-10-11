@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ritesh Roshan" />
+    <title>Neem yard film</title>
+    <!-- The 12 s loop of one school's heat twin in 3D. tools/three-d/render.py injects window.KV
+         and calls renderAt(t) once per frame; nothing here runs on a clock. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #13100d;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+    <script type="importmap">
+      { "imports": { "three": "../../web/node_modules/three/build/three.module.js" } }
+    </script>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from "three";
+
+      // The scene is Twin3D's: one vertex per 1 m cell, roofs from dsm, crowns from cdsm,
+      // flat shaded. The ground takes the published 1 pm maps instead of the live surrogate.
+      const NIGHT = "#13100d";
+      const PAPER = "#faf7f1";
+      const ROOF = [214, 214, 214];
+      const CROWN = [62, 112, 70];
+      const EDGE = "#3b332c"; // the cut edge of the tile
+      const ZONE_GROUND = 1;
+      const ZONE_BUILDING = 2;
+      const TALL_M = 2.5; // palette.map.tall_m: anything taller is a roof
+      const NEEM = { height: 7.0, radius: 3.5 }; // physics.ts SPECIES.neem
+      const SKIRT_M = 4;
+      const GREEN_M = 1; // a sprouting crown is fully green once it is this tall
+
+      // Timeline in seconds. 9.5 s to 12 s plays the growth backwards, so the loop closes.
+      const LOOP = 12;
+      const GROW_FROM = 3;
+      const GROW_TO = 6;
+      const HOLD_TO = 9.5;
+      const TREE_S = 1.2;
+
+      // One turn round the yard at a fixed elevation, framed to the widest point of the turn.
+      const FOV = 30;
+      const ELEVATION = 40;
+      const PHI0 = 15; // compass bearing from the yard to the camera at t = 0
+      const MARGIN = 0.07;
+
+      // Key from the 1 pm sun, a cool fill from the opposite sky, and a soft dome. The shares
+      // are of the light on open ground, which is scaled to show its map colour at EXPOSURE.
+      const KEY = { colour: "#fff3e4", share: 0.62 };
+      const FILL = { colour: "#cdd9f2", share: 0.12, altitude: 30 };
+      const DOME = { sky: "#e9effc", ground: "#5c5146", share: 0.26 };
+      const EXPOSURE = 0.95;
+
+      const KV = window.KV;
+      const { width, height, scale } = KV.frame;
+      const { rows, cols, pixel_size: px, x0, y0 } = KV.summary.grid;
+      const n = rows * cols;
+
+      const linear = (v) => {
+        const c = v / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      };
+      const LIN = Float32Array.from({ length: 256 }, (_, v) => linear(v));
+      const lin3 = (rgb) => rgb.map((v) => LIN[v]);
+      const smoother = (u) => {
+        const x = Math.min(1, Math.max(0, u));
+        return x * x * x * (x * (6 * x - 15) + 10);
+      };
+      const rad = THREE.MathUtils.degToRad;
+
+      /** The twin's raster layers, laid out as in web/src/lib/twin.ts. */
+      async function readLayers(b64) {
+        const gz = Uint8Array.from(atob(b64), (ch) => ch.charCodeAt(0));
+        const stream = new Blob([gz]).stream().pipeThrough(new DecompressionStream("gzip"));
+        const buf = await new Response(stream).arrayBuffer();
+        const read = (name) => {
+          const l = KV.summary.layers.find((x) => x.name === name);
+          return Float32Array.from(new Int16Array(buf, l.offset, n), (v) => v / l.scale);
+        };
+        const zones = Uint8Array.from(read("zones"), (v) => Math.round(v));
+        return { dsm: read("dsm"), dem: read("dem"), cdsm: read("cdsm"), zones };
+      }
+
+      /** A 1 pm map composited over paper, the way the site shows it, as linear rgb per cell. */
+      async function overPaper(src) {
+        const img = new Image();
+        img.src = src;
+        await img.decode();
+        if (img.width !== cols || img.height !== rows) {
+          throw new Error(`map is ${img.width}x${img.height}, the grid ${cols}x${rows}`);
+        }
+        const canvas = Object.assign(document.createElement("canvas"), {
+          width: cols,
+          height: rows,
+        });
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        ctx.fillStyle = PAPER;
+        ctx.fillRect(0, 0, cols, rows);
+        ctx.drawImage(img, 0, 0);
+        const rgba = ctx.getImageData(0, 0, cols, rows).data;
+        const out = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) {
+          for (let k = 0; k < 3; k++) out[i * 3 + k] = LIN[rgba[i * 4 + k]];
+        }
+        return out;
+      }
+
+      // World axes: x east, y up, z south, origin at the grid centre; vertex (r, c) sits on the
+      // centre of cell (r, c).
+      const worldX = (e) => e - (x0 + (cols * px) / 2);
+      const worldZ = (north) => y0 - (rows * px) / 2 - north;
+
+      /** Cells each tree can reach at full size, as physics.applyDesign walks them. */
+      function reach(tree, zones) {
+        const R = NEEM.radius;
+        const cMin = Math.max(0, Math.floor((tree.x - R - x0) / px) - 1);
+        const cMax = Math.min(cols - 1, Math.ceil((tree.x + R - x0) / px) + 1);
+        const rMin = Math.max(0, Math.floor((y0 - tree.y - R) / px) - 1);
+        const rMax = Math.min(rows - 1, Math.ceil((y0 - tree.y + R) / px) + 1);
+        const cells = [];
+        const d2 = [];
+        for (let r = rMin; r <= rMax; r++) {
+          const y = y0 - (r + 0.5) * px;
+          for (let c = cMin; c <= cMax; c++) {
+            const i = r * cols + c;
+            if (zones[i] === ZONE_BUILDING) continue;
+            const x = x0 + (c + 0.5) * px;
+            const dd = (x - tree.x) ** 2 + (y - tree.y) ** 2;
+            if (dd <= R * R) {
+              cells.push(i);
+              d2.push(dd);
+            }
+          }
+        }
+        return { cells: Int32Array.from(cells), d2: Float32Array.from(d2) };
+      }
+
+      /** Where the growth stands at time t, as a time inside the forward growth. */
+      function growthClock(t) {
+        if (t <= GROW_TO) return t;
+        if (t <= HOLD_TO) return GROW_TO;
+        return GROW_TO - ((t - HOLD_TO) * (GROW_TO - GROW_FROM)) / (LOOP - HOLD_TO);
+      }
+
+      function compass(altitude, azimuth) {
+        const a = rad(altitude);
+        const z = rad(azimuth);
+        return new THREE.Vector3(
+          Math.sin(z) * Math.cos(a),
+          Math.sin(a),
+          -Math.cos(z) * Math.cos(a),
+        );
+      }
+
+      function addLights(scene) {
+        const lum = (c) => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+        const ground = Math.PI * EXPOSURE; // irradiance that shows an albedo as itself
+        const key = new THREE.DirectionalLight(KEY.colour, 1);
+        key.position.copy(compass(KV.sun.altitude, KV.sun.azimuth));
+        key.intensity = (KEY.share * ground) / (lum(key.color) * key.position.y);
+        const fill = new THREE.DirectionalLight(FILL.colour, 1);
+        fill.position.copy(compass(FILL.altitude, KV.sun.azimuth + 180));
+        fill.intensity = (FILL.share * ground) / (lum(fill.color) * fill.position.y);
+        const dome = new THREE.HemisphereLight(DOME.sky, DOME.ground, 1);
+        dome.intensity = (DOME.share * ground) / lum(dome.color);
+        scene.add(key, fill, dome);
+      }
+
+      /** Side walls round the tile, from its edge heights down below the lowest ground. */
+      function skirt(pos, bottom) {
+        const ring = [];
+        for (let c = 0; c < cols; c++) ring.push(c);
+        for (let r = 1; r < rows; r++) ring.push(r * cols + cols - 1);
+        for (let c = cols - 2; c >= 0; c--) ring.push((rows - 1) * cols + c);
+        for (let r = rows - 2; r >= 0; r--) ring.push(r * cols);
+        const out = [];
+        for (let k = 0; k + 1 < ring.length; k++) {
+          const [a, b] = [ring[k] * 3, ring[k + 1] * 3];
+          const at = [pos[a], pos[a + 1], pos[a + 2]];
+          const bt = [pos[b], pos[b + 1], pos[b + 2]];
+          const ab = [at[0], bottom, at[2]];
+          const bb = [bt[0], bottom, bt[2]];
+          out.push(...at, ...bb, ...ab, ...at, ...bt, ...bb);
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
+        geometry.computeVertexNormals();
+        return new THREE.Mesh(
+          geometry,
+          new THREE.MeshLambertMaterial({ color: EDGE, flatShading: true }),
+        );
+      }
+
+      function place(camera, phi, distance, target) {
+        const p = compass(ELEVATION, phi).multiplyScalar(distance);
+        camera.position.copy(target).add(p);
+        camera.lookAt(target);
+        camera.updateMatrixWorld();
+      }
+
+      /** The orbit radius that keeps every point in frame all the way round, and the vertical
+       * shift that centres them. */
+      function fit(points, target) {
+        const camera = new THREE.PerspectiveCamera(FOV, width / height, 1, 10000);
+        const v = new THREE.Vector3();
+        const extent = (distance) => {
+          let x = 0;
+          let lo = Number.POSITIVE_INFINITY;
+          let hi = Number.NEGATIVE_INFINITY;
+          for (let phi = 0; phi < 360; phi += 3) {
+            place(camera, phi, distance, target);
+            for (let k = 0; k < points.length; k += 3) {
+              v.set(points[k], points[k + 1], points[k + 2]).project(camera);
+              x = Math.max(x, Math.abs(v.x));
+              lo = Math.min(lo, v.y);
+              hi = Math.max(hi, v.y);
+            }
+          }
+          return { x, lo, hi };
+        };
+        let near = 50;
+        let far = 5000;
+        for (let it = 0; it < 24; it++) {
+          const mid = (near + far) / 2;
+          const e = extent(mid);
+          if (e.x <= 1 - MARGIN && (e.hi - e.lo) / 2 <= 1 - MARGIN) far = mid;
+          else near = mid;
+        }
+        const e = extent(far);
+        return { distance: far, shift: (e.hi + e.lo) / 2 };
+      }
+
+      async function build() {
+        const { dsm, dem, cdsm, zones } = await readLayers(KV.layers);
+        const today = await overPaper(KV.maps.today);
+        const plan = await overPaper(KV.maps.plan);
+
+        let base = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < n; i++) base = Math.min(base, dem[i]);
+        const roof = new Uint8Array(n);
+        for (let i = 0; i < n; i++) {
+          roof[i] = zones[i] === ZONE_BUILDING || dsm[i] - dem[i] > TALL_M ? 1 : 0;
+        }
+
+        const geometry = new THREE.PlaneGeometry((cols - 1) * px, (rows - 1) * px, cols - 1, rows - 1);
+        geometry.rotateX(-Math.PI / 2);
+        geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+        const mesh = new THREE.Mesh(
+          geometry,
+          new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+        );
+        mesh.frustumCulled = false;
+
+        // the yard's centre, which the camera turns round and the planting ripples out from
+        let yr = 0;
+        let yc = 0;
+        let yn = 0;
+        let yh = 0;
+        for (let i = 0; i < n; i++) {
+          if (zones[i] !== ZONE_GROUND) continue;
+          yr += Math.floor(i / cols);
+          yc += i % cols;
+          yh += dem[i] - base;
+          yn++;
+        }
+        const target = new THREE.Vector3(
+          (yc / yn - (cols - 1) / 2) * px,
+          yh / yn,
+          (yr / yn - (rows - 1) / 2) * px,
+        );
+
+        const trees = KV.trees.map((t) => ({ ...reach(t, zones), x: worldX(t.x), z: worldZ(t.y) }));
+        const dist = trees.map((t) => Math.hypot(t.x - target.x, t.z - target.z));
+        const dMin = Math.min(...dist);
+        const dMax = Math.max(...dist);
+        trees.forEach((t, k) => {
+          const u = dMax > dMin ? (dist[k] - dMin) / (dMax - dMin) : 0;
+          t.start = GROW_FROM + u * (GROW_TO - GROW_FROM - TREE_S);
+        });
+
+        // Each cell takes the plan's colour as its nearest new tree grows, so shade arrives with
+        // the crown that casts it rather than ahead of it.
+        const nearest = new Uint16Array(n);
+        for (let i = 0; i < n; i++) {
+          const x = ((i % cols) - (cols - 1) / 2) * px;
+          const z = (Math.floor(i / cols) - (rows - 1) / 2) * px;
+          let best = Number.POSITIVE_INFINITY;
+          for (let k = 0; k < trees.length; k++) {
+            const d = (x - trees[k].x) ** 2 + (z - trees[k].z) ** 2;
+            if (d < best) {
+              best = d;
+              nearest[i] = k;
+            }
+          }
+        }
+
+        const pos = geometry.getAttribute("position");
+        const col = geometry.getAttribute("color");
+        const planted = new Float32Array(n);
+        const crown = lin3(CROWN);
+        const grey = lin3(ROOF);
+
+        /** Heights and colours at time t: Twin3D's paint with the trees part-grown. */
+        function paint(t) {
+          const clock = growthClock(t);
+          const grown = trees.map((tree) => smoother((clock - tree.start) / TREE_S));
+          planted.fill(0);
+          trees.forEach((tree, j) => {
+            const s = grown[j];
+            if (s <= 0) return;
+            const r2 = (NEEM.radius * s) ** 2;
+            const h = NEEM.height * s;
+            for (let k = 0; k < tree.cells.length; k++) {
+              const dd = tree.d2[k];
+              if (dd > r2) continue;
+              const v = h * (1 - dd / r2) ** 0.25;
+              const i = tree.cells[k];
+              if (v > planted[i]) planted[i] = v;
+            }
+          });
+          const p = pos.array;
+          const c = col.array;
+          for (let i = 0; i < n; i++) {
+            const ground = dem[i] - base;
+            const canopy = Math.max(cdsm[i], planted[i]);
+            p[i * 3 + 1] = Math.max(dsm[i] - base, ground + canopy);
+            let rgb;
+            if (roof[i]) rgb = grey;
+            else if (cdsm[i] > 0) rgb = crown;
+            else {
+              const f = grown[nearest[i]];
+              const w = Math.min(1, planted[i] / GREEN_M);
+              rgb = [0, 1, 2].map((k) => {
+                const g = today[i * 3 + k] + f * (plan[i * 3 + k] - today[i * 3 + k]);
+                return g + w * (crown[k] - g);
+              });
+            }
+            c[i * 3] = rgb[0];
+            c[i * 3 + 1] = rgb[1];
+            c[i * 3 + 2] = rgb[2];
+          }
+          pos.needsUpdate = true;
+          col.needsUpdate = true;
+        }
+
+        paint(0);
+        const edge = skirt(pos.array, -SKIRT_M);
+
+        // frame the tile's rim, its foot, and everything standing on it
+        const points = [];
+        for (let i = 0; i < n; i++) {
+          const r = Math.floor(i / cols);
+          const c = i % cols;
+          const y = pos.array[i * 3 + 1];
+          const rim = r === 0 || c === 0 || r === rows - 1 || c === cols - 1;
+          if (rim || y > TALL_M) points.push(pos.array[i * 3], y, pos.array[i * 3 + 2]);
+          if (rim) points.push(pos.array[i * 3], -SKIRT_M, pos.array[i * 3 + 2]);
+        }
+        const framing = fit(Float32Array.from(points), target);
+
+        const scene = new THREE.Scene();
+        scene.add(mesh, edge);
+        addLights(scene);
+
+        const camera = new THREE.PerspectiveCamera(FOV, width / height, 10, 10000);
+        camera.setViewOffset(width, height, 0, (-framing.shift * height) / 2, width, height);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(scale);
+        renderer.setSize(width, height);
+        renderer.setClearColor(NIGHT);
+        document.body.appendChild(renderer.domElement);
+
+        window.renderAt = (t, phi) => {
+          const time = ((t % LOOP) + LOOP) % LOOP;
+          paint(time);
+          place(camera, phi ?? PHI0 + (360 * time) / LOOP, framing.distance, target);
+          renderer.render(scene, camera);
+        };
+
+        const gl = renderer.getContext();
+        const info = gl.getExtension("WEBGL_debug_renderer_info");
+        return {
+          gl: gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER),
+          distance: framing.distance,
+          trees: trees.length,
+        };
+      }
+
+      window.ready = build();
+    </script>
+  </body>
+</html>

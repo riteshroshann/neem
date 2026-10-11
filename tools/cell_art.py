@@ -483,7 +483,45 @@ def stars(seed: int = 7, width: int = 480, height: int = 320, count: int = 70) -
     print(f"stars.svg: {count} cells, {len(svg) / 1024:.1f} KB")
 
 
+def growth(age: int, rows: int, seed: int = 21) -> Art:
+    """One neem at `age`, true to scale (a cell is 12.5 cm), with a nine-year-old beside it."""
+    from neem_core.interventions import NEEM_BY_AGE
+
+    cell = 0.125
+    height, radius = NEEM_BY_AGE[age]
+    crown = 2 * radius / cell
+    cols = int(max(crown, 24) + 28)
+    art = Art(cols, rows)
+    base = rows - 3
+    trunk_x = int(max(crown, 24) / 2) + 2
+    for c in range(cols):  # a strip of dry ground
+        for r in range(base, rows):
+            art.put(c, r, "#d9cdb8" if (c + r) % 3 else "#cfc1a8")
+    if age <= 1:
+        # a sapling on a stake inside its brick guard, the way Delhi plants them
+        for r in range(base - int(height / cell), base):
+            art.put(trunk_x, r, BARK)
+        top = base - int(height / cell)
+        art.fill(Point(trunk_x, top + 2).buffer(radius / cell, 16), LEAF[2])
+        art.fill(Point(trunk_x + 1.5, top + 1).buffer(radius / cell * 0.55, 16), LEAF[3])
+        for r in range(base - 8, base):
+            for c in (trunk_x - 5, trunk_x + 5):
+                art.put(c, r, "#a4553a")
+        for c in range(trunk_x - 5, trunk_x + 6):
+            if c % 2 == 0:
+                art.put(c, base - 8, "#b9694b")
+    else:
+        neem_tree(art, trunk_x, base + 0.6, height / cell, crown, seed + age)
+    kid(art, min(cols - 4, trunk_x + int(max(crown, 24) * 0.32) + 4), base + 1)
+    return art
+
+
 if __name__ == "__main__":
+    from neem_core.interventions import NEEM_BY_AGE
+
+    tallest = int(max(h for h, _ in NEEM_BY_AGE.values()) / 0.125) + 10
+    for age in sorted(NEEM_BY_AGE):
+        growth(age, tallest).svg(f"growth-y{age}.svg", "xMidYMax meet")
     stars()
     branch(seed=11).svg("neem-left.svg", "xMinYMin meet")
     right = branch(seed=23)

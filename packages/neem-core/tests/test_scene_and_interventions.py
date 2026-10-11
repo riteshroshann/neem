@@ -65,3 +65,16 @@ def test_interventions_only_ever_add_canopy_and_order_does_not_matter(points) ->
     backward = apply(scene, list(reversed(trees)))
     assert np.all(forward.cdsm >= scene.cdsm)
     assert np.allclose(forward.cdsm, backward.cdsm)
+
+
+def test_an_older_tree_casts_a_wider_canopy() -> None:
+    from neem_core.interventions import NEEM_BY_AGE
+
+    scene = yard()
+    rows, cols = np.nonzero(scene.zones == 1)  # open ground: trees are never planted on roofs
+    mid = len(rows) // 2
+    x, y = scene.grid.to_map(rows[mid] + 0.5, cols[mid] + 0.5)
+    young = apply(scene, [Tree(x, y, "neem")])
+    old = apply(scene, [Tree(x, y, "neem", NEEM_BY_AGE[30])])
+    assert (old.cdsm > 0).sum() > (young.cdsm > 0).sum()
+    assert old.cdsm.max() > young.cdsm.max()

@@ -178,6 +178,66 @@ def export_twin(school_id: str, day: str, out: Path) -> None:
         (out / "plan.json").write_text(plan.read_text())
 
 
+def export_future(day: str, data_out: Path, twin_out: Path) -> None:
+    """The showcase plan as it grows (neem-data grow): one stored SOLWEIG run per age.
+
+    For each age: the yard mean at 1 pm, the shaded share of the morning, the child, and the
+    1 pm feels-like under the new crowns against the same cells today. Ages without a stored
+    run are skipped, so the page only ever shows years that were modelled.
+    """
+    from neem_core.interventions import NEEM_BY_AGE, Tree, apply
+    from neem_core.scene import Scene
+    from neem_data.designs import parse
+
+    scene = Scene.load(lake.scene_dir(SHOWCASE))
+    ground = scene.zones == ZONE_GROUND
+    base = lake.run_dir(SHOWCASE, f"{day}-base")
+    today = field_at(base, "13:00")
+    plan = json.loads((lake.ROOT / "plans" / f"{SHOWCASE}.json").read_text())
+    trees = [t for t in parse(plan["design"]) if isinstance(t, Tree)]
+    child_today = json.loads((base / "child.json").read_text())["morning"]
+    base_meta = json.loads((base / "meta.json").read_text())
+
+    stages: list[dict[str, Any]] = [
+        {
+            "years": 0,
+            "yard_1pm": plan["baseline"]["hours"]["13:00"]["today"],
+            "shade": base_meta["exposure"]["shade_fraction"],
+            "child_rise": child_today["peak_rise"],
+            "water_ml": child_today["total_water_ml"],
+            "map": f"/twins/{SHOWCASE}/map-1pm.png",
+        }
+    ]
+    for age in sorted(NEEM_BY_AGE):
+        run_id = f"{day}-plan" if age == 5 else f"{day}-plan-y{age}"
+        run = lake.run_dir(SHOWCASE, run_id)
+        if not (run / "field.npz").exists():
+            continue
+        meta = json.loads((run / "meta.json").read_text())
+        name = "map-1pm-plan.png" if age == 5 else f"map-1pm-y{age}.png"
+        heat_png(SHOWCASE, run_id, twin_out / name)
+        size = NEEM_BY_AGE[age]
+        grown = apply(scene, [Tree(t.x, t.y, t.species, size) for t in trees])
+        under = ground & (grown.cdsm > scene.cdsm + 0.5)  # cells the new crowns cover
+        later = field_at(run, "13:00")
+        stages.append(
+            {
+                "years": age,
+                "height_m": size[0],
+                "crown_m": size[1] * 2,
+                "yard_1pm": meta["utci_ground_by_hour"][meta["hours"].index("13:00")],
+                "shade": meta["exposure"]["shade_fraction"],
+                "child_rise": meta["child"]["peak_rise"],
+                "water_ml": meta["child"]["total_water_ml"],
+                "under_crowns_1pm": round(float(np.nanmean(later[under])), 1),
+                "under_crowns_today": round(float(np.nanmean(today[under])), 1),
+                "crown_cover_m2": int(under.sum()),
+                "map": f"/twins/{SHOWCASE}/{name}",
+            }
+        )
+    data_out.write_text(json.dumps({"school_id": SHOWCASE, "trees": len(trees), "stages": stages}))
+
+
 def publish(day: str, web: Path) -> None:
     data = web / "src" / "data"
     thumbs = web / "public" / "thumbs"
@@ -235,4 +295,5 @@ def publish(day: str, web: Path) -> None:
     for t in twins:
         export_twin(str(t["school_id"]), day, web / "public" / "twins" / str(t["school_id"]))
     export_showcase(day, data / "showcase.json")
+    export_future(day, data / "future.json", web / "public" / "twins" / SHOWCASE)
     print(f"publish: {len(rows)} schools, {len(twins)} twins, r={stats['canopy_heat_r']} -> {web}")
