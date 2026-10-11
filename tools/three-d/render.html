@@ -30,17 +30,18 @@
 
       // The scene is Twin3D's: one vertex per 1 m cell, roofs from dsm, crowns from cdsm,
       // flat shaded. The ground takes the published 1 pm maps instead of the live surrogate.
-      const NIGHT = "#13100d";
-      const PAPER = "#faf7f1";
+      const NIGHT = "#13100d"; // the night page
       const ROOF = [214, 214, 214];
       const CROWN = [62, 112, 70];
-      const EDGE = "#3b332c"; // the cut edge of the tile
       const ZONE_GROUND = 1;
       const ZONE_BUILDING = 2;
       const TALL_M = 2.5; // palette.map.tall_m: anything taller is a roof
       const NEEM = { height: 7.0, radius: 3.5 }; // physics.ts SPECIES.neem
-      const SKIRT_M = 4; // how far the tile's edge drops below its lowest ground
       const GREEN_M = 1; // a sprouting crown is fully green once it is this tall
+      // The city fades into the night with distance from the school wall. Its roofs and crowns
+      // start part way gone, so the school's own lead.
+      const CITY_DIM = 0.45;
+      const EDGE = 0.06; // the frame melts into the page over this share of its height
 
       // Timeline in seconds. 9.5 s to 12 s plays the growth backwards, so the loop closes.
       const LOOP = 12;
@@ -49,11 +50,11 @@
       const HOLD_TO = 9.5;
       const TREE_S = 1.2;
 
-      // One turn round the yard at a fixed elevation, framed to the widest point of the turn.
+      // One turn round the school at a fixed elevation, framed to the widest point of the turn.
       const FOV = 30;
       const ELEVATION = 40;
-      const PHI0 = 15; // compass bearing from the yard to the camera at t = 0
-      const MARGIN = 0.07;
+      const PHI0 = 15; // compass bearing from the school to the camera at t = 0
+      const MARGIN = 0.1; // keeps the school clear of the frame's melting edge
 
       // Key from the 1 pm sun, a cool fill from the opposite sky, and a soft dome. The shares
       // are of the light on open ground, which is scaled to show its map colour at EXPOSURE.
@@ -98,6 +99,26 @@
         return x * x * x * (x * (6 * x - 15) + 10);
       };
       const rad = THREE.MathUtils.degToRad;
+      const inSchool = (zone) => zone === ZONE_GROUND || zone === ZONE_BUILDING;
+      const sides = (i) => [i - cols, i + cols, i - 1, i + 1]; // cells sharing an edge with i
+
+      // The city dissolves into the night round the school. This is three's fog with its
+      // distance swapped: each vertex carries how far it has gone, set by its distance from the
+      // school wall rather than from the camera. Meshes inside the school turn fog off.
+      THREE.ShaderChunk.fog_pars_vertex = `#ifdef USE_FOG
+        attribute float fade;
+        varying float vFade;
+      #endif`;
+      THREE.ShaderChunk.fog_vertex = `#ifdef USE_FOG
+        vFade = fade;
+      #endif`;
+      THREE.ShaderChunk.fog_pars_fragment = `#ifdef USE_FOG
+        uniform vec3 fogColor;
+        varying float vFade;
+      #endif`;
+      THREE.ShaderChunk.fog_fragment = `#ifdef USE_FOG
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, fogColor, vFade);
+      #endif`;
 
       /** The twin's raster layers, laid out as in web/src/lib/twin.ts. */
       async function readLayers(b64) {
@@ -112,24 +133,29 @@
         return { dsm: read("dsm"), dem: read("dem"), cdsm: read("cdsm"), zones };
       }
 
-      /** A 1 pm map composited over paper, the way the site shows it, as linear rgb per cell. */
-      async function overPaper(src) {
+      /** A published 1 pm map, decoded and checked against the grid. */
+      async function loadMap(src) {
         const img = new Image();
         img.src = src;
         await img.decode();
         if (img.width !== cols || img.height !== rows) {
           throw new Error(`map is ${img.width}x${img.height}, the grid ${cols}x${rows}`);
         }
-        const canvas = Object.assign(document.createElement("canvas"), {
-          width: cols,
-          height: rows,
-        });
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        ctx.fillStyle = PAPER;
-        ctx.fillRect(0, 0, cols, rows);
-        ctx.drawImage(img, 0, 0);
-        const rgba = ctx.getImageData(0, 0, cols, rows).data;
-        const out = new Float32Array(n * 3);
+        return img;
+      }
+
+      const board = Object.assign(document.createElement("canvas"), {
+        width: cols,
+        height: rows,
+      }).getContext("2d", { willReadFrequently: true });
+
+      /** A 1 pm map laid over a page colour, the way the site shows it, as linear rgb per cell.
+       * The maps leave the city beyond the school wall translucent, so it takes the page's dark. */
+      function over(img, colour, out = new Float32Array(n * 3)) {
+        board.fillStyle = colour;
+        board.fillRect(0, 0, cols, rows);
+        board.drawImage(img, 0, 0);
+        const rgba = board.getImageData(0, 0, cols, rows).data;
         for (let i = 0; i < n; i++) {
           for (let k = 0; k < 3; k++) out[i * 3 + k] = LIN[rgba[i * 4 + k]];
         }
@@ -166,6 +192,32 @@
         return { cells: Int32Array.from(cells), d2: Float32Array.from(d2) };
       }
 
+      /** How far each cell has gone into the night: 0 in the school, rising with distance from
+       * its wall to 1 by the tile's nearest edge, so the tile never shows as a slab. */
+      function dissolve(zones, standing) {
+        const wall = [];
+        let reachM = Number.POSITIVE_INFINITY; // from the school to the nearest edge
+        for (let i = 0; i < n; i++) {
+          if (!inSchool(zones[i])) continue;
+          const [r, c] = [Math.floor(i / cols), i % cols];
+          reachM = Math.min(reachM, px * Math.min(r, c, rows - 1 - r, cols - 1 - c));
+          if (sides(i).some((j) => !inSchool(zones[j]))) wall.push(r, c);
+        }
+        if (reachM === 0) throw new Error("the school runs to the edge of the tile");
+        const fade = new Float32Array(n);
+        for (let i = 0; i < n; i++) {
+          if (inSchool(zones[i])) continue;
+          const [r, c] = [Math.floor(i / cols), i % cols];
+          let d2 = Number.POSITIVE_INFINITY;
+          for (let k = 0; k < wall.length; k += 2) {
+            d2 = Math.min(d2, (r - wall[k]) ** 2 + (c - wall[k + 1]) ** 2);
+          }
+          const gone = smoother((Math.sqrt(d2) * px) / reachM);
+          fade[i] = standing[i] ? CITY_DIM + (1 - CITY_DIM) * gone : gone;
+        }
+        return fade;
+      }
+
       /** Where the growth stands at time t, as a time inside the forward growth. */
       function growthClock(t) {
         if (t <= GROW_TO) return t;
@@ -195,31 +247,6 @@
         const dome = new THREE.HemisphereLight(DOME.sky, DOME.ground, 1);
         dome.intensity = (DOME.share * ground) / lum(dome.color);
         scene.add(key, fill, dome);
-      }
-
-      /** Side walls round the tile, from its edge heights down below the lowest ground. */
-      function skirt(pos, bottom) {
-        const ring = [];
-        for (let c = 0; c < cols; c++) ring.push(c);
-        for (let r = 1; r < rows; r++) ring.push(r * cols + cols - 1);
-        for (let c = cols - 2; c >= 0; c--) ring.push((rows - 1) * cols + c);
-        for (let r = rows - 2; r >= 0; r--) ring.push(r * cols);
-        const out = [];
-        for (let k = 0; k + 1 < ring.length; k++) {
-          const [a, b] = [ring[k] * 3, ring[k + 1] * 3];
-          const at = [pos[a], pos[a + 1], pos[a + 2]];
-          const bt = [pos[b], pos[b + 1], pos[b + 2]];
-          const ab = [at[0], bottom, at[2]];
-          const bb = [bt[0], bottom, bt[2]];
-          out.push(...at, ...bb, ...ab, ...at, ...bt, ...bb);
-        }
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("position", new THREE.Float32BufferAttribute(out, 3));
-        geometry.computeVertexNormals();
-        return new THREE.Mesh(
-          geometry,
-          new THREE.MeshLambertMaterial({ color: EDGE, flatShading: true }),
-        );
       }
 
       function aim(camera, elevation, phi, distance, target) {
@@ -264,15 +291,18 @@
         return { distance: far, shift: (e.hi + e.lo) / 2 };
       }
 
-      /** The tile as Twin3D lays it out, one vertex per cell; callers fill heights and colours. */
+      /** The tile as Twin3D lays it out, one vertex per cell, the city round the school fading
+       * into the night; callers fill heights and colours. */
       async function terrain() {
         const layers = await readLayers(KV.layers);
-        const { dsm, dem, zones } = layers;
+        const { dsm, dem, cdsm, zones } = layers;
         let base = Number.POSITIVE_INFINITY;
         for (let i = 0; i < n; i++) base = Math.min(base, dem[i]);
         const roof = new Uint8Array(n);
+        const standing = new Uint8Array(n);
         for (let i = 0; i < n; i++) {
           roof[i] = zones[i] === ZONE_BUILDING || dsm[i] - dem[i] > TALL_M ? 1 : 0;
+          standing[i] = roof[i] || cdsm[i] > 0 ? 1 : 0;
         }
 
         const geometry = new THREE.PlaneGeometry(
@@ -283,6 +313,7 @@
         );
         geometry.rotateX(-Math.PI / 2);
         geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+        geometry.setAttribute("fade", new THREE.BufferAttribute(dissolve(zones, standing), 1));
         const mesh = new THREE.Mesh(
           geometry,
           new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
@@ -293,25 +324,28 @@
         return { ...layers, base, roof, mesh, pos, col };
       }
 
-      /** The yard's centre, which the camera turns round and the planting ripples out from. */
-      function yardCentre(zones, dem, base) {
-        let yr = 0;
-        let yc = 0;
-        let yn = 0;
-        let yh = 0;
+      /** The centre of the cells in some zones, on the ground. */
+      function centroid(zones, dem, base, within) {
+        let sumR = 0;
+        let sumC = 0;
+        let sumH = 0;
+        let count = 0;
         for (let i = 0; i < n; i++) {
-          if (zones[i] !== ZONE_GROUND) continue;
-          yr += Math.floor(i / cols);
-          yc += i % cols;
-          yh += dem[i] - base;
-          yn++;
+          if (!within(zones[i])) continue;
+          sumR += Math.floor(i / cols);
+          sumC += i % cols;
+          sumH += dem[i] - base;
+          count++;
         }
         return new THREE.Vector3(
-          (yc / yn - (cols - 1) / 2) * px,
-          yh / yn,
-          (yr / yn - (rows - 1) / 2) * px,
+          (sumC / count - (cols - 1) / 2) * px,
+          sumH / count,
+          (sumR / count - (rows - 1) / 2) * px,
         );
       }
+
+      const yardCentre = (zones, dem, base) =>
+        centroid(zones, dem, base, (zone) => zone === ZONE_GROUND);
 
       function makeRenderer() {
         const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
@@ -322,6 +356,34 @@
         return renderer;
       }
 
+      /** The page colour laid over the frame's edge, last of all, so no frame or still shows as
+       * a rectangle on the page. It ignores the camera and covers the frame. */
+      function veil() {
+        const band = `vec2(${((EDGE * height) / width).toFixed(5)}, ${EDGE})`;
+        const material = new THREE.ShaderMaterial({
+          uniforms: { colour: { value: new THREE.Color(NIGHT) } },
+          vertexShader: `varying vec2 vUv;
+            void main() {
+              vUv = uv;
+              gl_Position = vec4(position.xy, 0.0, 1.0);
+            }`,
+          fragmentShader: `uniform vec3 colour;
+            varying vec2 vUv;
+            void main() {
+              vec2 inside = smoothstep(vec2(0.0), ${band}, min(vUv, 1.0 - vUv));
+              gl_FragColor = vec4(colour, 1.0 - inside.x * inside.y);
+              #include <colorspace_fragment>
+            }`,
+          transparent: true,
+          depthTest: false,
+          depthWrite: false,
+        });
+        const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+        mesh.frustumCulled = false;
+        mesh.renderOrder = 1;
+        return mesh;
+      }
+
       function glName(renderer) {
         const gl = renderer.getContext();
         const info = gl.getExtension("WEBGL_debug_renderer_info");
@@ -330,8 +392,8 @@
 
       async function build() {
         const { dsm, dem, cdsm, zones, base, roof, mesh, pos, col } = await terrain();
-        const today = await overPaper(KV.maps.today);
-        const plan = await overPaper(KV.maps.plan);
+        const today = over(await loadMap(KV.maps.today), NIGHT);
+        const plan = over(await loadMap(KV.maps.plan), NIGHT);
         const target = yardCentre(zones, dem, base);
 
         const trees = KV.trees.map((t) => ({ ...reach(t, zones), x: worldX(t.x), z: worldZ(t.y) }));
@@ -407,24 +469,25 @@
           col.needsUpdate = true;
         }
 
-        paint(0);
-        // the rim is the same at every t: new trees stand well inside the school
-        const edge = skirt(pos.array, -SKIRT_M);
-
-        // frame the tile's rim, its foot, and everything standing on it
+        // frame the school with its trees grown, its wall from foot to top and everything
+        // standing inside; the city round it runs on to the frame's edge and melts there
+        paint(GROW_TO);
         const points = [];
         for (let i = 0; i < n; i++) {
-          const r = Math.floor(i / cols);
-          const c = i % cols;
-          const y = pos.array[i * 3 + 1];
-          const rim = r === 0 || c === 0 || r === rows - 1 || c === cols - 1;
-          if (rim || y > TALL_M) points.push(pos.array[i * 3], y, pos.array[i * 3 + 2]);
-          if (rim) points.push(pos.array[i * 3], -SKIRT_M, pos.array[i * 3 + 2]);
+          if (!inSchool(zones[i])) continue;
+          const [x, y, z] = [pos.array[i * 3], pos.array[i * 3 + 1], pos.array[i * 3 + 2]];
+          const ground = dem[i] - base;
+          const wall = sides(i).some((j) => !inSchool(zones[j]));
+          if (wall) points.push(x, ground, z);
+          if (wall || y - ground > TALL_M) points.push(x, y, z);
         }
-        const framing = fit(Float32Array.from(points), target);
+        // the camera turns round the whole school, so it stays in the middle of the turn
+        const pivot = centroid(zones, dem, base, inSchool);
+        const framing = fit(Float32Array.from(points), pivot);
 
         const scene = new THREE.Scene();
-        scene.add(mesh, edge);
+        scene.add(mesh, veil());
+        scene.fog = new THREE.Fog(NIGHT);
         addLights(scene);
 
         const camera = new THREE.PerspectiveCamera(FOV, width / height, 10, 10000);
@@ -435,7 +498,7 @@
         window.renderAt = (t) => {
           const time = ((t % LOOP) + LOOP) % LOOP;
           paint(time);
-          place(camera, PHI0 + (360 * time) / LOOP, framing.distance, target);
+          place(camera, PHI0 + (360 * time) / LOOP, framing.distance, pivot);
           renderer.render(scene, camera);
         };
 
@@ -626,6 +689,7 @@
         }
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute("position", tile.getAttribute("position"));
+        geometry.setAttribute("fade", tile.getAttribute("fade"));
         geometry.setAttribute("color", new THREE.BufferAttribute(colour, 3));
         geometry.setIndex(own);
         geometry.computeVertexNormals();
@@ -640,7 +704,7 @@
       async function buildFuture() {
         const { dsm, dem, cdsm, zones, base, roof, mesh, pos, col } = await terrain();
         const stages = KV.future.stages;
-        const maps = await Promise.all(stages.map((s) => overPaper(s.map)));
+        const maps = await Promise.all(stages.map((s) => loadMap(s.map)));
         const target = yardCentre(zones, dem, base);
 
         // Heights once: roofs and today's canopy, softened so the 1 m raster shows as crowns
@@ -651,17 +715,19 @@
           p[i * 3 + 1] = Math.max(dsm[i] - base, dem[i] - base + soft[i]);
         }
         pos.needsUpdate = true;
-        const edge = skirt(p, -SKIRT_M);
         const bounce = new THREE.Color().setRGB(...GREENS_LIN[0].map((v) => v * BOUNCE));
         const canopy = todaysCanopy(mesh.geometry, soft, roof, bounce);
 
         const grey = lin3(ROOF);
+        const [ma, mb] = [new Float32Array(n * 3), new Float32Array(n * 3)];
         let painted = "";
-        /** Ground from stage a's map, faded by w toward stage b's: nothing but SOLWEIG colour. */
-        function paint(a, b, w) {
-          if (painted === `${a} ${b} ${w}`) return;
-          painted = `${a} ${b} ${w}`;
-          const [ma, mb] = [maps[a], maps[b]];
+        /** Ground from stage a's map, faded by w toward stage b's, each laid over the screen:
+         * nothing but SOLWEIG colour. */
+        function paint(a, b, w, screen) {
+          if (painted === `${a} ${b} ${w} ${screen}`) return;
+          painted = `${a} ${b} ${w} ${screen}`;
+          over(maps[a], screen, ma);
+          over(maps[b], screen, mb);
           const c = col.array;
           for (let i = 0; i < n; i++) {
             for (let k = 0; k < 3; k++) {
@@ -685,7 +751,11 @@
             tint: 0.9 + 0.16 * rand(),
           };
         });
-        const leaves = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: bounce });
+        const leaves = new THREE.MeshLambertMaterial({
+          vertexColors: true,
+          emissive: bounce,
+          fog: false,
+        });
         const crowns = Array.from({ length: SHAPES }, (_, s) => {
           const mine = trees.filter((t) => t.shape === s);
           const m = new THREE.InstancedMesh(crownGeometry(101 + s), leaves, mine.length);
@@ -696,7 +766,7 @@
         const stem = new THREE.CylinderGeometry(0.7, 1, 1, 12, 1, true).translate(0, 0.5, 0);
         const trunks = new THREE.InstancedMesh(
           stem,
-          new THREE.MeshLambertMaterial({ color: BARK }),
+          new THREE.MeshLambertMaterial({ color: BARK, fog: false }),
           trees.length,
         );
         trunks.frustumCulled = false;
@@ -740,7 +810,7 @@
         const last = stages[stages.length - 1];
         const school = [];
         for (let i = 0; i < n; i++) {
-          if (zones[i] !== ZONE_GROUND && zones[i] !== ZONE_BUILDING) continue;
+          if (!inSchool(zones[i])) continue;
           const x = p[i * 3];
           const z = p[i * 3 + 2];
           school.push(x, dem[i] - base, z, x, p[i * 3 + 1], z);
@@ -761,7 +831,9 @@
         };
 
         const scene = new THREE.Scene();
-        scene.add(mesh, canopy, edge, trunks, ...crowns.map((c) => c.mesh));
+        const edge = veil();
+        scene.add(mesh, canopy, trunks, ...crowns.map((c) => c.mesh), edge);
+        scene.fog = new THREE.Fog(NIGHT);
         addLights(scene);
         const camera = new THREE.PerspectiveCamera(FOV, width / height, 10, 10000);
         const renderer = makeRenderer();
@@ -779,8 +851,12 @@
           };
         }
 
+        // the film's own dark is the page's, so it never shows as a rectangle
         window.drawFuture = ({ height: h, radius, ground, view }) => {
-          paint(...ground);
+          scene.fog.color.set(NIGHT);
+          renderer.setClearColor(NIGHT);
+          edge.material.uniforms.colour.value.set(NIGHT);
+          paint(...ground, NIGHT);
           grow(h, radius);
           const v = view === "still" ? views.still : ride(view);
           aim(camera, v.elevation, v.bearing, v.distance, target);

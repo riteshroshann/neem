@@ -122,7 +122,7 @@ export default function ChildChart({ today, plan, start = "7:30" }: Props) {
           <path
             d={path(plan)}
             fill="none"
-            stroke="var(--heat-very-strong)"
+            stroke="var(--leaf)"
             strokeWidth={2}
             strokeDasharray="6 4"
           />
@@ -137,7 +137,7 @@ export default function ChildChart({ today, plan, start = "7:30" }: Props) {
       </svg>
       <figcaption className="xs muted">
         Core temperature above the child's own resting state, minute by minute (JOS-3, scaled to a
-        nine-year-old). Grey bands are time outdoors. The dotted line is a 1 °C rise, the usual
+        nine-year-old). Shaded bands are time outdoors. The dotted line is a 1 °C rise, the usual
         heat-strain line. {plan ? "Dashed: with your verified plan." : ""}
       </figcaption>
     </figure>

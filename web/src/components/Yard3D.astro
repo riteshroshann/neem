@@ -44,20 +44,23 @@ const steps = [
     </div>
 
     <figure class="film">
-      <video
-        data-yard3d
-        muted
-        loop
-        playsinline
-        preload="none"
-        poster="/media/kv-3d.jpg"
-        width="1280"
-        height="800"
-        aria-label={`A 3D model of ${name} turning slowly as ${plan.trees} neem trees grow in and the yard cools`}
-      >
-        <source src="/media/kv-3d.webm" type="video/webm" />
-        <source src="/media/kv-3d.mp4" type="video/mp4" />
-      </video>
+      <div class="plate">
+        <video
+          data-yard3d
+          muted
+          loop
+          playsinline
+          preload="none"
+          poster="/media/kv-3d.jpg"
+          width="1280"
+          height="800"
+          aria-label={`A 3D model of ${name} turning slowly as ${plan.trees} neem trees grow in and the yard cools`}
+        >
+          <source src="/media/kv-3d.webm" type="video/webm" />
+          <source src="/media/kv-3d.mp4" type="video/mp4" />
+        </video>
+        <span class="marks" aria-hidden="true"></span>
+      </div>
       <figcaption class="xs muted">
         Roofs from Overture and Copernicus heights, crowns from Meta and WRI canopy height, ground
         coloured by feels-like temperature from two SOLWEIG runs. <a href={`/school/${id}`}>Turn it yourself in the 3D view</a>.
@@ -137,12 +140,18 @@ const steps = [
     gap: var(--s-3);
   }
 
+  /* set in a neatline with corner marks, like the long shade's film */
+  .plate {
+    position: relative;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+
   video {
+    display: block;
     width: 100%;
     height: auto;
     aspect-ratio: 16 / 10;
-    background: var(--paper);
-    border: 1px solid var(--line);
+    background: #13100d;
   }
 
   .film a {

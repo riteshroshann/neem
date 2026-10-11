@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { delta, lakh, ml, rise, temp } from "../lib/format";
 import { BANDS, heatRgb, MAP } from "../lib/palette";
 import {
@@ -19,6 +19,7 @@ import Twin3D from "./Twin3D";
 import "./planner.css";
 
 type Tool = Species | "sail";
+type View = "map" | "3d";
 type Verify =
   | { state: "idle" }
   | { state: "running"; started: number }
@@ -54,6 +55,21 @@ function planItems(plan: AgentPlan): Intervention[] {
   ];
 }
 
+/** One step of the agent's trace, "tool -> result", as a line to read: the preview's hourly
+    JSON becomes its 1 pm pair. */
+function stepLine(step: string): string {
+  const [call, result = ""] = step.split(" -> ");
+  if (call === "preview") {
+    try {
+      const pm = (JSON.parse(result) as Record<string, { today: number; plan: number }>)["13:00"];
+      if (pm) return `preview: 1 pm ${pm.today.toFixed(1)} → ${pm.plan.toFixed(1)} °C`;
+    } catch {
+      // not the hourly form: show it as it came
+    }
+  }
+  return result ? `${call} → ${result}` : step;
+}
+
 // Dev talks to the local API; a production build without PUBLIC_NEEM_API has no physics server.
 const API =
   (import.meta.env.PUBLIC_NEEM_API as string | undefined) ??
@@ -74,7 +90,6 @@ const rupees = new Intl.NumberFormat("en-IN", {
 
 const PLACEHOLDER_HOURS = ["7 am", "8 am", "9 am", "10 am", "11 am", "12 pm", "1 pm"];
 
-/** Same layout as the planner, with the 1 pm heat map as a plain image, while the twin loads. */
 /** Run `fn` once the page's largest paint is on screen, or on the next frame after load. */
 function afterFirstPaint(fn: () => void): () => void {
   if (PerformanceObserver.supportedEntryTypes?.includes("largest-contentful-paint")) {
@@ -97,9 +112,40 @@ function afterFirstPaint(fn: () => void): () => void {
   };
 }
 
+interface MapSize {
+  rows: number;
+  cols: number;
+}
+
+/** The map's shape, read by the CSS that sizes its column and its frame. */
+function aspect(size: MapSize): React.CSSProperties {
+  return { ["--aspect" as string]: String(size.cols / size.rows) };
+}
+
+/** Map or 3D, floating in the corner of the map like the tags on the site's other maps. */
+function Views({ view, onChange }: { view: View; onChange?: (v: View) => void }) {
+  return (
+    <fieldset className="views" disabled={!onChange}>
+      <legend className="visually-hidden">View</legend>
+      {(["map", "3d"] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          className={view === v ? "on" : ""}
+          aria-pressed={view === v}
+          onClick={() => onChange?.(v)}
+        >
+          {v === "map" ? "Map" : "3D"}
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
+/** Same layout as the planner, with the 1 pm heat map as a plain image, while the twin loads. */
 export function PlannerPlaceholder({ schoolId, size }: { schoolId: string; size: MapSize }) {
   return (
-    <div className="planner-top" aria-busy="true">
+    <div className="planner-top" style={aspect(size)} aria-busy="true">
       <div className="planner-map">
         <fieldset className="hours" disabled>
           <legend className="visually-hidden">Hour of the day</legend>
@@ -109,32 +155,22 @@ export function PlannerPlaceholder({ schoolId, size }: { schoolId: string; size:
             </button>
           ))}
         </fieldset>
-        <fieldset className="views" disabled>
-          <legend className="visually-hidden">View</legend>
-          <button type="button" className="on">
-            Map
-          </button>
-          <button type="button">3D</button>
-        </fieldset>
-        <img
-          className="placeholder-map"
-          style={{ ["--aspect" as string]: String(size.cols / size.rows) }}
-          src={`/twins/${schoolId}/map-1pm.png`}
-          alt="Heat map of the school grounds at 1 pm"
-          width={size.cols}
-          height={size.rows}
-        />
+        <div className="stage">
+          <img
+            src={`/twins/${schoolId}/map-1pm.png`}
+            alt="Heat map of the school grounds at 1 pm"
+            width={size.cols}
+            height={size.rows}
+          />
+          <Views view="map" />
+        </div>
+        <p className="xs readout" />
       </div>
       <aside className="planner-side">
         <p className="label">Loading the 1 m heat twin…</p>
       </aside>
     </div>
   );
-}
-
-interface MapSize {
-  rows: number;
-  cols: number;
 }
 
 export default function Planner({ schoolId, size }: { schoolId: string; size: MapSize }) {
@@ -150,7 +186,9 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
   const [previewMs, setPreviewMs] = useState(0);
   const [hint, setHint] = useState("");
   const [plan, setPlan] = useState<AgentPlan | null>(null);
-  const [view, setView] = useState<"map" | "3d">("map");
+  const [view, setView] = useState<View>("map");
+  const [stageWidth, setStageWidth] = useState(0);
+  const stage = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const baseFeatures = useRef(new Map<number, Features>());
   const hourRow = useRef<HTMLFieldSetElement>(null);
@@ -193,6 +231,7 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
   const loadPlan = () => {
     if (!plan) return;
     const next = planItems(plan);
+    setHint("");
     setItems(next);
     setVerify(
       plan.verified
@@ -236,10 +275,22 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
     if (preview) setPreviewMs(preview.ms);
   }, [preview]);
 
-  // Paint the heat field and the design overlay. `view` is a dependency on purpose: the canvas
-  // remounts when the 3D view closes and must be painted again.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: repaint the remounted canvas
+  // The stage appears with the twin; a new width means a new bitmap, so the cells stay crisp.
   useEffect(() => {
+    const el = stage.current;
+    if (!el || !twin) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setStageWidth(Math.round(entry.contentRect.width));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [twin]);
+
+  // Paint the heat field and the design overlay before the frame shows, so swapping in the
+  // canvas never flashes. `view` and `stageWidth` are dependencies on purpose: the canvas
+  // remounts when the 3D view closes, and resizes with the window.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: repaint the remounted or resized canvas
+  useLayoutEffect(() => {
     const el = canvas.current;
     if (!el || !twin || !preview || !editCdsm) return;
     const { rows, cols, pixel_size: px, x0, y0 } = twin.summary.grid;
@@ -267,12 +318,12 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
     }
     octx.putImageData(img, 0, 0);
 
+    // the stage's CSS box sets the size; the bitmap matches it pixel for pixel
     const dpr = window.devicePixelRatio || 1;
     const width = el.clientWidth;
-    const height = (width * rows) / cols;
+    const height = el.clientHeight;
     el.width = Math.round(width * dpr);
     el.height = Math.round(height * dpr);
-    el.style.height = `${height}px`;
     const ctx = el.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -281,30 +332,53 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
 
     const s = width / (cols * px); // screen px per metre
     const toScreen = (x: number, y: number) => [(x - x0) * s, (y0 - y) * s] as const;
-    ctx.lineWidth = 1.25;
-    ctx.strokeStyle = "#16130f";
+    const crowns = new Path2D();
+    const trunks = new Path2D();
+    const sails = new Path2D();
+    const pending = new Path2D();
     for (const it of items) {
       if (it.kind === "tree") {
         const [cx, cy] = toScreen(it.x, it.y);
-        ctx.beginPath();
-        ctx.arc(cx, cy, SPECIES[it.species].radius * s, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(cx, cy, 2, 0, Math.PI * 2);
-        ctx.fillStyle = "#16130f";
-        ctx.fill();
+        const r = SPECIES[it.species].radius * s;
+        crowns.moveTo(cx + r, cy);
+        crowns.arc(cx, cy, r, 0, Math.PI * 2);
+        // on a small map a trunk dot would cover the cooler ground the crown makes
+        if (r >= 7) {
+          trunks.moveTo(cx + 2, cy);
+          trunks.arc(cx, cy, 2, 0, Math.PI * 2);
+        }
       } else {
         const [l, t] = toScreen(it.x - it.width / 2, it.y + it.depth / 2);
-        ctx.strokeRect(l, t, it.width * s, it.depth * s);
+        sails.rect(l, t, it.width * s, it.depth * s);
       }
     }
     if (drag) {
-      ctx.setLineDash([4, 3]);
       const [a, b] = toScreen(Math.min(drag.x0, drag.x1), Math.max(drag.y0, drag.y1));
-      ctx.strokeRect(a, b, Math.abs(drag.x1 - drag.x0) * s, Math.abs(drag.y1 - drag.y0) * s);
-      ctx.setLineDash([]);
+      pending.rect(a, b, Math.abs(drag.x1 - drag.x0) * s, Math.abs(drag.y1 - drag.y0) * s);
     }
-  }, [twin, preview, editCdsm, items, drag, view]);
+
+    // theme colours, not fixed ones: your trees in the accent green, sails in ink, each over
+    // a dark halo so it reads on the hottest ground and the palest roof alike
+    const css = getComputedStyle(el);
+    const ink = css.getPropertyValue("--ink").trim();
+    const leaf = css.getPropertyValue("--leaf").trim();
+    const halo = css.getPropertyValue("--paper").trim();
+    ctx.strokeStyle = halo;
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = Math.min(4, 1.5 + s); // thinner on small maps, so it never fills a crown
+    for (const path of [crowns, trunks, sails, pending]) ctx.stroke(path);
+    ctx.globalAlpha = 1;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = leaf;
+    ctx.stroke(crowns);
+    ctx.fillStyle = leaf;
+    ctx.fill(trunks);
+    ctx.strokeStyle = ink;
+    ctx.stroke(sails);
+    ctx.setLineDash([4, 3]);
+    ctx.stroke(pending);
+    ctx.setLineDash([]);
+  }, [twin, preview, editCdsm, items, drag, view, stageWidth]);
 
   const toMap = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -380,6 +454,7 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         e.preventDefault();
+        setHint("");
         setItems((xs) => xs.slice(0, -1));
       }
     };
@@ -496,7 +571,7 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
 
   return (
     <div className="planner">
-      <div className="planner-top">
+      <div className="planner-top" style={aspect(size)}>
         <div className="planner-map">
           <fieldset className="hours" ref={hourRow}>
             <legend className="visually-hidden">Hour of the day</legend>
@@ -512,50 +587,32 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
               </button>
             ))}
           </fieldset>
-          <fieldset className="views">
-            <legend className="visually-hidden">View</legend>
-            <button
-              type="button"
-              className={view === "map" ? "on" : ""}
-              aria-pressed={view === "map"}
-              onClick={() => setView("map")}
-            >
-              Map
-            </button>
-            <button
-              type="button"
-              className={view === "3d" ? "on" : ""}
-              aria-pressed={view === "3d"}
-              onClick={() => setView("3d")}
-            >
-              3D
-            </button>
-          </fieldset>
-          {view === "3d" && editCdsm ? (
-            <Twin3D twin={twin} cdsm={editCdsm} utci={preview.utci} />
-          ) : (
-            <canvas
-              ref={canvas}
-              className={tool === "sail" ? "drag" : ""}
-              style={{
-                ["--aspect" as string]: String(twin.summary.grid.cols / twin.summary.grid.rows),
-              }}
-              aria-label={`Heat map of ${twin.summary.name} at ${h ? hourLabel(h.time) : ""}. Click to plant, drag to place a shade sail.`}
-              onPointerDown={onDown}
-              onPointerMove={onMove}
-              onPointerUp={onUp}
-              onPointerLeave={() => setHover(null)}
-            />
-          )}
-          {view === "map" && (
-            <p className="xs muted readout num" aria-live="polite">
-              {hint ||
-                (hoverValue !== undefined
-                  ? `Under the cursor: ${temp(hoverValue)} feels-like (UTCI). `
-                  : "Hover the yard to read the heat at any square metre. ")}
-              {!hint && `Preview recomputed in ${previewMs.toFixed(0)} ms.`}
-            </p>
-          )}
+          <div className="stage" ref={stage}>
+            {view === "3d" && editCdsm ? (
+              <Twin3D twin={twin} cdsm={editCdsm} utci={preview.utci} />
+            ) : (
+              <canvas
+                ref={canvas}
+                className={tool === "sail" ? "drag" : ""}
+                aria-label={`Heat map of ${twin.summary.name} at ${h ? hourLabel(h.time) : ""}. Click to plant, drag to place a shade sail.`}
+                onPointerDown={onDown}
+                onPointerMove={onMove}
+                onPointerUp={onUp}
+                onPointerLeave={() => setHover(null)}
+              />
+            )}
+            <Views view={view} onChange={setView} />
+          </div>
+          <p className="xs muted readout num" aria-live="polite">
+            {view === "3d"
+              ? "Drag to orbit, scroll or pinch to zoom. Ground coloured by feels-like heat; grey roofs, green crowns, your trees included."
+              : hint ||
+                `${
+                  hoverValue !== undefined
+                    ? `Under the cursor: ${temp(hoverValue)} feels-like (UTCI).`
+                    : "Hover the yard to read the heat at any square metre."
+                }${items.length ? ` Preview recomputed in ${previewMs.toFixed(0)} ms.` : ""}`}
+          </p>
         </div>
 
         <aside className="planner-side">
@@ -575,13 +632,17 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
             role="img"
             aria-label="Share of the grounds in each heat-stress band"
           >
-            {shares.map((s, i) => (
-              <span
-                key={BANDS[i]?.name}
-                style={{ flexGrow: s, background: BANDS[i]?.hex }}
-                title={`${BANDS[i]?.name}: ${(s * 100).toFixed(0)}%`}
-              />
-            ))}
+            {/* only the bands the legend names: an empty one would still leave its gap and push
+                the bar off the edge of the text */}
+            {shares.map((s, i) =>
+              s > 0.005 ? (
+                <span
+                  key={BANDS[i]?.name}
+                  style={{ flexGrow: s, background: BANDS[i]?.hex }}
+                  title={`${BANDS[i]?.name}: ${(s * 100).toFixed(0)}%`}
+                />
+              ) : null,
+            )}
           </div>
           <ul className="legend xs num">
             {shares.map((s, i) =>
@@ -625,7 +686,10 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
                 type="button"
                 className="button quiet"
                 disabled={!items.length}
-                onClick={() => setItems((xs) => xs.slice(0, -1))}
+                onClick={() => {
+                  setHint("");
+                  setItems((xs) => xs.slice(0, -1));
+                }}
               >
                 Undo
               </button>
@@ -634,6 +698,7 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
                 className="button quiet"
                 disabled={!items.length}
                 onClick={() => {
+                  setHint("");
                   setItems([]);
                   setVerify({ state: "idle" });
                 }}
@@ -725,7 +790,7 @@ export default function Planner({ schoolId, size }: { schoolId: string; size: Ma
                 <summary>How the planner got there</summary>
                 <ol>
                   {plan.steps.map((step) => (
-                    <li key={step}>{step}</li>
+                    <li key={step}>{stepLine(step)}</li>
                   ))}
                 </ol>
                 <p>In its own words: “{plan.answer}”</p>

@@ -245,6 +245,23 @@ figcaption {
   }
 }
 
+/* the same marks at the four corners of a plate: a film or a map set in a neatline */
+.marks {
+  --m: linear-gradient(var(--ink), var(--ink));
+  position: absolute;
+  inset: -6px;
+  pointer-events: none;
+  background:
+    var(--m) left 5px top 0 / 1px 11px no-repeat,
+    var(--m) left 0 top 5px / 11px 1px no-repeat,
+    var(--m) right 5px top 0 / 1px 11px no-repeat,
+    var(--m) right 0 top 5px / 11px 1px no-repeat,
+    var(--m) left 5px bottom 0 / 1px 11px no-repeat,
+    var(--m) left 0 bottom 5px / 11px 1px no-repeat,
+    var(--m) right 5px bottom 0 / 1px 11px no-repeat,
+    var(--m) right 0 bottom 5px / 11px 1px no-repeat;
+}
+
 .kicker {
   font: 500 var(--t-xs) / 1.3 var(--sans);
   letter-spacing: 0.08em;
@@ -268,7 +285,7 @@ figcaption {
   --line: #3a322a;
   --line-strong: #f4eee4;
   --neem: #2f6d45;
-  --neem-deep: #3a7f53;
+  --neem-deep: #35784d; /* lights up on hover, as far as AA with --on-neem allows */
   --leaf: #7fb36a;
   --on-neem: #f4eee4;
   --globe-sea: #1d2731;

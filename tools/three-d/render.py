@@ -191,6 +191,12 @@ def read_stages() -> list[Stage]:
     return stages
 
 
+def shown(age: float) -> float:
+    """An age as the page shows it: floored, so no frame shows an age before the frame that
+    reaches it."""
+    return math.floor(age * 100) / 100
+
+
 def smoother(u: float) -> float:
     x = min(1.0, max(0.0, u))
     return x * x * x * (x * (6 * x - 15) + 10)
@@ -289,11 +295,11 @@ def future(frames: Path, encode_only: bool) -> dict[str, int]:
         "fps": FPS,
         "frames": RIDE_FRAMES,
         "duration": RIDE_FRAMES / FPS,
-        # floored, so no frame shows an age before the frame that reaches it
-        "years": [math.floor(y * 100) / 100 for y in years],
+        "years": [shown(y) for y in years],
         "stages": [{"years": s["years"], "frame": f} for s, f in zip(stages, knots, strict=True)],
     }
-    (MEDIA / "future-ride.json").write_text(json.dumps(track) + "\n", encoding="utf-8")
+    path = MEDIA / "future-ride.json"
+    path.write_text(json.dumps(track) + "\n", encoding="utf-8", newline="\n")
     budget = dict.fromkeys(stills, STILL_BUDGET)
     budget |= {"future-ride.webm": RIDE_BUDGET, "future-ride.mp4": RIDE_BUDGET}
     return budget | {"future-ride.jpg": STILL_BUDGET}

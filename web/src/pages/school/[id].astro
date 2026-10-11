@@ -25,6 +25,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
   title={school.name}
   description={`A 1 m heat twin of ${school.name}, Delhi: how hot its grounds feel to a child on 27 April 2026, and what trees and shade would change.`}
   path={`/school/${school.school_id}`}
+  night
 >
   <Fragment slot="head">
     {/* small files only: the 0.8 MB heat field waits for the planner, so it never delays the page */}
@@ -32,7 +33,6 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
       <link rel="preload" href={`/twins/${school.school_id}/${f}`} as="fetch" crossorigin="anonymous" />
     ))}
   </Fragment>
-  <div class="night">
   <section class="wrap head page-head">
     <p class="small muted"><a href="/#twins">Heat twins</a> · {school.government ? "Government school" : "School"}, Delhi</p>
     <h1 class="title school-name">{school.name}</h1>
@@ -43,7 +43,6 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
       <div><dt class="label">Tree cover over open ground</dt><dd>{pct(school.canopy_cover)}</dd></div>
     </dl>
   </section>
-  </div>
 
   <section class="wrap planner-wrap rule">
     <Planner client:only="react" schoolId={school.school_id} size={size}>
