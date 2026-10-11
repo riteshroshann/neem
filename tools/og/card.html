@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="author" content="Ritesh Roshan" />
+    <title>Neem social card</title>
+    <!-- The 1200x630 link-preview card. tools/og/render.py injects window.OG and screenshots it. -->
+    <style>
+      @font-face {
+        font-family: "Instrument Serif";
+        src: url("../../web/public/fonts/instrument-serif.woff2") format("woff2");
+      }
+
+      @font-face {
+        font-family: "Geist";
+        src: url("../../web/public/fonts/geist.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+
+      :root {
+        --paper: #faf7f1;
+        --ink: #16130f;
+        --muted: #69625a;
+        --heat-extreme: #8c1c30;
+      }
+
+      html,
+      body {
+        margin: 0;
+      }
+
+      body {
+        position: relative;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: var(--paper);
+        color: var(--ink);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .copy {
+        position: absolute;
+        inset: 64px auto 64px 80px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+
+      .wordmark {
+        margin: 0;
+        font: 400 44px / 1 "Instrument Serif";
+        letter-spacing: -0.01em;
+      }
+
+      h1 {
+        margin: 0;
+        font: 400 86px / 0.95 "Instrument Serif";
+        letter-spacing: -0.025em;
+      }
+
+      h1 span {
+        display: block;
+      }
+
+      /* 47 °C feels-like is in the extreme band, so it wears that colour, as on the site */
+      h1 em {
+        font-style: normal;
+        color: var(--heat-extreme);
+      }
+
+      .line {
+        margin: 28px 0 0;
+        font: 400 28px / 1.3 "Geist";
+        font-feature-settings: "ss01", "cv11";
+        color: var(--muted);
+      }
+
+      canvas {
+        position: absolute;
+      }
+
+      .globe {
+        top: 57px;
+        right: 72px;
+      }
+
+      .branch {
+        top: 0;
+        right: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="copy">
+      <p class="wordmark">Neem</p>
+      <div>
+        <h1>
+          <span>The air</span>
+          <span>reached 42&nbsp;°C.</span>
+          <span>The schoolyard</span>
+          <span>felt like&nbsp;<em>47.</em></span>
+        </h1>
+        <p class="line">766 Delhi schoolyards, modelled for heat</p>
+      </div>
+    </div>
+    <canvas class="globe" width="516" height="516"></canvas>
+    <canvas class="branch" width="336" height="208"></canvas>
+
+    <script>
+      // A static port of web/src/lib/globe.ts: same projection, land mask, sun bands, dither and colours,
+      // with the camera already settled midway between Delhi and the point under the sun.
+      const RAD = Math.PI / 180;
+      const ALPHABET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_";
+      const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(
+        (v) => (v + 0.5) / 16 - 0.5,
+      );
+      const EDGES = [30, 50, 70].map((d) => Math.sin(d * RAD));
+      const COLOURS = ["#e5e9ec", "#ebe5db", "#cbc3b6", "#f1d9a7", "#e9a15a", "#d65a2e", "#8c1c30"];
+      const [SEA, SEA_NIGHT, LAND_NIGHT, LAND_DAY] = [0, 1, 2, 3];
+
+      function decodeLand({ cols, rows, rle }) {
+        const index = new Map([...ALPHABET].map((ch, i) => [ch, i]));
+        const out = new Uint8Array(cols * rows);
+        rle.split(".").forEach((line, r) => {
+          let c = 0;
+          let land = false;
+          for (let i = 0; i < line.length; i += 2) {
+            const n = (index.get(line[i] ?? "0") ?? 0) * 64 + (index.get(line[i + 1] ?? "0") ?? 0);
+            if (land) out.fill(1, r * cols + c, r * cols + c + n);
+            c += n;
+            land = !land;
+          }
+        });
+        return out;
+      }
+
+      function unit([lat, lon]) {
+        const p = lat * RAD;
+        const l = lon * RAD;
+        return [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+      }
+
+      function drawGlobe(canvas, { land: mask, sun: sunAt, focus, hidden }) {
+        const { cols, rows } = mask;
+        const land = decodeLand(mask);
+        const sun = unit(sunAt);
+        const px = canvas.width;
+        // the site's cell size for a globe this wide: size / 96, kept between 3.6 and 6 px
+        const cellPx = Math.max(3, Math.round(Math.min(6, Math.max(3.6, px / 96))));
+        const n = Math.floor(px / cellPx);
+        const gap = Math.max(1, Math.round(cellPx * 0.2));
+        const offset = Math.floor((px - n * cellPx) / 2);
+        const p = focus[0] * RAD;
+        const l = focus[1] * RAD;
+        const c = [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+        const e = [-Math.sin(l), Math.cos(l), 0];
+        const u = [-Math.sin(p) * Math.cos(l), -Math.sin(p) * Math.sin(l), Math.cos(p)];
+        const ctx = canvas.getContext("2d");
+        const side = cellPx - gap;
+        for (let j = 0; j < n; j++) {
+          for (let i = 0; i < n; i++) {
+            const sx = ((i + 0.5) / n) * 2 - 1;
+            const sy = -(((j + 0.5) / n) * 2 - 1);
+            const r2 = sx * sx + sy * sy;
+            if (r2 > 1) continue;
+            const left = offset + i * cellPx;
+            const top = offset + j * cellPx;
+            if (hidden(left, top, side)) continue;
+            const z = Math.sqrt(1 - r2);
+            const x = c[0] * z + e[0] * sx + u[0] * sy;
+            const y = c[1] * z + e[1] * sx + u[1] * sy;
+            const w = c[2] * z + u[2] * sy;
+            const lat = Math.asin(Math.max(-1, Math.min(1, w))) / RAD;
+            const lon = Math.atan2(y, x) / RAD;
+            const r = Math.min(rows - 1, Math.floor((90 - lat) / 0.5));
+            const q = Math.min(cols - 1, Math.floor((lon + 180) / 0.5));
+            const light = x * sun[0] + y * sun[1] + w * sun[2];
+            const d = BAYER[(i & 3) + ((j & 3) << 2)];
+            const day = light + d * 0.07 > 0;
+            let colour;
+            if (!land[r * cols + q]) colour = day ? SEA : SEA_NIGHT;
+            else if (!day) colour = LAND_NIGHT;
+            else colour = LAND_DAY + EDGES.filter((edge) => light + d * 0.05 > edge).length;
+            ctx.fillStyle = COLOURS[colour];
+            ctx.fillRect(left, top, side, side);
+          }
+        }
+      }
+
+      // The site's neem branch, from the cell runs of web/public/art/neem-right.svg.
+      function drawBranch(canvas, { cols, layers }) {
+        const s = canvas.width / cols;
+        const side = s - Math.max(1, Math.round(s * 0.2));
+        const ctx = canvas.getContext("2d");
+        for (const [fill, runs] of layers) {
+          ctx.fillStyle = fill;
+          for (const [x, y, w] of runs) {
+            for (let k = 0; k < w; k++) ctx.fillRect((x + k) * s, y * s, side, side);
+          }
+        }
+      }
+
+      // Where the branch hangs over the globe the leaves sit in front: a globe cell that a leaf
+      // touches, or comes within a pixel of, is left out whole rather than cut.
+      function underBranch(branchCanvas, globeCanvas) {
+        const { width, height, data } = branchCanvas
+          .getContext("2d")
+          .getImageData(0, 0, branchCanvas.width, branchCanvas.height);
+        const dx = globeCanvas.offsetLeft - branchCanvas.offsetLeft;
+        const dy = globeCanvas.offsetTop - branchCanvas.offsetTop;
+        const leaf = (u, v) => u >= 0 && v >= 0 && u < width && v < height && data[(v * width + u) * 4 + 3];
+        return (x, y, side) => {
+          for (let v = y + dy - 1; v <= y + dy + side; v++) {
+            for (let u = x + dx - 1; u <= x + dx + side; u++) if (leaf(u, v)) return true;
+          }
+          return false;
+        };
+      }
+
+      const { land, sun, branch } = window.OG;
+      const focus = [(sun.subsolar[0] + sun.site[0]) / 2, (sun.subsolar[1] + sun.site[1]) / 2];
+      const globeCanvas = document.querySelector(".globe");
+      const branchCanvas = document.querySelector(".branch");
+      drawBranch(branchCanvas, branch);
+      drawGlobe(globeCanvas, { land, sun: sun.subsolar, focus, hidden: underBranch(branchCanvas, globeCanvas) });
+    </script>
+  </body>
+</html>

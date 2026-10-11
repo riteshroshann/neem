@@ -1,14 +1,22 @@
 ---
-import Planner from "../../components/Planner";
+import { readFileSync } from "node:fs";
+import Planner, { PlannerPlaceholder } from "../../components/Planner";
 import ranking from "../../data/ranking.json";
 import twins from "../../data/twins.json";
 import Base from "../../layouts/Base.astro";
 
 export function getStaticPaths() {
-  return twins.map((t) => ({ params: { id: t.school_id }, props: { school: t } }));
+  return twins.map((t) => {
+    // grid size so the placeholder image reserves its space before it loads
+    const meta = JSON.parse(readFileSync(`public/twins/${t.school_id}/twin.json`, "utf-8"));
+    return {
+      params: { id: t.school_id },
+      props: { school: t, size: { rows: meta.grid.rows, cols: meta.grid.cols } },
+    };
+  });
 }
 
-const { school } = Astro.props;
+const { school, size } = Astro.props;
 const total = ranking.stats.schools;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 ---
@@ -18,7 +26,13 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
   description={`A 1 m heat twin of ${school.name}, Delhi: how hot its grounds feel to a child on 27 April 2026, and what trees and shade would change.`}
   path={`/school/${school.school_id}`}
 >
-  <section class="wrap head">
+  <Fragment slot="head">
+    {/* small files only: the 0.8 MB heat field waits for the planner, so it never delays the page */}
+    {["twin.json", "calibration.json", "child.json", "plan.json"].map((f) => (
+      <link rel="preload" href={`/twins/${school.school_id}/${f}`} as="fetch" crossorigin="anonymous" />
+    ))}
+  </Fragment>
+  <section class="wrap head page-head">
     <p class="small muted"><a href="/#twins">Heat twins</a> · {school.government ? "Government school" : "School"}, Delhi</p>
     <h1 class="title school-name">{school.name}</h1>
     <dl class="facts num">
@@ -30,7 +44,9 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
   </section>
 
   <section class="wrap planner-wrap rule">
-    <Planner client:only="react" schoolId={school.school_id} />
+    <Planner client:only="react" schoolId={school.school_id} size={size}>
+      <PlannerPlaceholder slot="fallback" schoolId={school.school_id} size={size} />
+    </Planner>
   </section>
 
   <section class="wrap section notes rule">
@@ -60,7 +76,7 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 <style>
   .head {
-    padding-block: var(--s-8) var(--s-6);
+    padding-bottom: var(--s-6);
     display: grid;
     gap: var(--s-4);
   }
@@ -83,13 +99,29 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 
   .planner-wrap {
     padding-top: var(--s-6);
-    padding-bottom: var(--section);
+    padding-bottom: var(--s-8);
   }
 
   .notes {
     display: grid;
     grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
     gap: var(--s-8);
+  }
+
+  /* on wide screens the name and the four facts share a row, lifting the map toward the fold */
+  @media (min-width: 1000px) {
+    .head {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+      column-gap: var(--s-8);
+      align-items: end;
+    }
+    .head > p {
+      grid-column: 1 / -1;
+    }
+    .facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin: 0;
+    }
   }
 
   @media (max-width: 900px) {

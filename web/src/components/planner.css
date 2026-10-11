@@ -1,5 +1,11 @@
 .planner {
   display: grid;
+  gap: var(--s-8);
+}
+
+/* Map and controls side by side; the child chart sits below, outside this row. */
+.planner-top {
+  display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
   gap: var(--s-7) var(--s-8);
   align-items: start;
@@ -10,8 +16,13 @@
   color: var(--muted);
 }
 
+/* never taller than the window, so the whole yard is in view beside the tools */
+.planner-map canvas,
+.placeholder-map {
+  width: min(100%, calc((100svh - 150px) * var(--aspect, 1)));
+}
+
 .planner-map canvas {
-  width: 100%;
   cursor: crosshair;
   touch-action: none;
   background: var(--wash);
@@ -21,13 +32,19 @@
   cursor: cell;
 }
 
+/* fieldsets default to min-inline-size: min-content and refuse to shrink */
+.hours,
+.tools,
+.views {
+  min-inline-size: 0;
+}
+
 .hours {
   border: 0;
   padding: 0;
   margin-inline: 0;
   display: flex;
   flex-wrap: wrap;
-  border-top: 1px solid var(--ink);
   margin-bottom: var(--s-4);
 }
 
@@ -42,8 +59,8 @@
   margin-right: var(--s-4);
   min-height: 44px;
   cursor: pointer;
-  border-top: 2px solid transparent;
-  margin-top: -1px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
 }
 
 .hours button:hover,
@@ -54,7 +71,7 @@
 .hours button.on,
 .tools button.on {
   color: var(--ink);
-  border-top-color: var(--ink);
+  border-bottom-color: var(--ink);
 }
 
 .readout {
@@ -65,8 +82,6 @@
 .planner-side {
   display: grid;
   gap: var(--s-4);
-  position: sticky;
-  top: 80px;
 }
 
 .planner-side .figure {
@@ -122,6 +137,11 @@
   border-top: 1px solid var(--line);
 }
 
+.tools button {
+  margin-right: var(--s-3);
+  padding-right: var(--s-2);
+}
+
 .tools legend {
   float: left;
   width: 100%;
@@ -145,12 +165,11 @@
   padding: 0 var(--s-4);
 }
 
-.status {
-  min-height: 2.6em;
+.status:empty {
+  display: none;
 }
 
 .planner-child {
-  grid-column: 1 / -1;
   padding-top: var(--s-7);
   display: grid;
   grid-template-columns: 340px minmax(0, 1fr);
@@ -168,8 +187,8 @@
 }
 
 .child-chart svg {
-  width: 100%;
-  height: auto;
+  display: block;
+  max-width: 100%;
 }
 
 .child-chart .seg,
@@ -184,12 +203,27 @@
 }
 
 @media (max-width: 960px) {
-  .planner,
+  /* minmax(0, 1fr), not 1fr: the scrolling hour row must not widen the page */
+  .planner-top,
   .planner-child {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
-  .planner-side {
-    position: static;
+}
+
+/* the hour row only scrolls once it no longer fits */
+@media (max-width: 620px) {
+  .hours {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* a soft edge says the row scrolls */
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      #000 20px,
+      #000 calc(100% - 20px),
+      transparent
+    );
   }
 }
 
@@ -206,9 +240,23 @@
 
 .agent summary {
   cursor: pointer;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
+  padding-block: var(--s-2);
+}
+
+.agent-design {
+  font-weight: 500;
+}
+
+.agent-facts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin: 0;
+}
+
+.agent-facts dd {
+  margin: var(--s-1) 0 0;
+  font-size: var(--t-body);
 }
 
 .views {
@@ -244,4 +292,10 @@
 
 .twin3d p {
   margin-top: var(--s-3);
+}
+
+.placeholder-map {
+  width: 100%;
+  height: auto;
+  background: var(--wash);
 }

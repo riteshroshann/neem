@@ -1,18 +1,42 @@
-import stops from "../data/palette.json";
+import palette from "../data/palette.json";
 
 export interface Stop {
   utci: number;
   hex: string;
-  band: string;
 }
 
-export const STOPS: Stop[] = stops;
+/** A UTCI heat-stress category: lower bound (null for the open bottom), name and a ramp colour. */
+export interface Band {
+  min: number | null;
+  name: string;
+  hex: string;
+}
 
-const RGB = STOPS.map((s) => [
-  Number.parseInt(s.hex.slice(1, 3), 16),
-  Number.parseInt(s.hex.slice(3, 5), 16),
-  Number.parseInt(s.hex.slice(5, 7), 16),
-]);
+export const STOPS: Stop[] = palette.stops;
+export const BANDS: Band[] = palette.bands;
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16),
+  ];
+}
+
+/** Map drawing, shared with the 1 pm PNGs so swapping in the live canvas never flashes. */
+export const MAP: {
+  schoolRoof: [number, number, number];
+  nearbyRoof: [number, number, number];
+  outsideAlpha: number;
+  tallM: number;
+} = {
+  schoolRoof: hexToRgb(palette.map.school_roof),
+  nearbyRoof: hexToRgb(palette.map.nearby_roof),
+  outsideAlpha: palette.map.outside_alpha,
+  tallM: palette.map.tall_m,
+};
+
+const RGB = STOPS.map((s) => hexToRgb(s.hex));
 
 /** UTCI to RGB, linear between stops and clamped at the ends, exactly like palette.colorize. */
 export function heatRgb(utci: number): [number, number, number] {
@@ -44,9 +68,9 @@ export function heatHex(utci: number): string {
     .join("")}`;
 }
 
-/** Name of the UTCI heat-stress band a value falls in. */
+/** Name of the UTCI heat-stress band a value falls in, exactly like palette.band. */
 export function band(utci: number): string {
-  let name = STOPS[0]?.band ?? "";
-  for (const s of STOPS) if (utci >= s.utci) name = s.band;
+  let name = BANDS[0]?.name ?? "";
+  for (const b of BANDS) if (b.min !== null && utci >= b.min) name = b.name;
   return name;
 }

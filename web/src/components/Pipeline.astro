@@ -1,0 +1,139 @@
+---
+// How Neem runs, from open data to the page. Each stage names the AWS tool doing the work.
+const stages = [
+  {
+    name: "Open data",
+    tools: "AWS Open Data",
+    text: "Overture buildings, Meta and WRI canopy height, Copernicus elevation, OpenStreetMap schools, ERA5 weather.",
+  },
+  {
+    name: "Lake",
+    tools: "S3 · DuckDB",
+    text: "GeoParquet and cloud-optimised GeoTIFFs, queried in place. No database server.",
+  },
+  {
+    name: "Physics",
+    tools: "SQS · Lambda",
+    text: "SOLWEIG at 1 m in a queue worker. The city ranking fans out over a Step Functions map.",
+  },
+  {
+    name: "Planner",
+    tools: "Strands Agents · Cedar",
+    text: "An agent on a local model plants within a budget it cannot overspend. Cedar decides who may verify and approve.",
+  },
+  {
+    name: "Page",
+    tools: "In your browser",
+    text: "A preview calibrated against SOLWEIG for each school and hour. Verify sends the design to the full model.",
+  },
+];
+---
+
+<section class="wrap section pipeline rule" aria-labelledby="pipeline-title">
+  <div class="pipeline-head">
+    <p class="kicker">How it runs</p>
+    <h2 class="title" id="pipeline-title">Open data in, verified physics out</h2>
+  </div>
+  <ol class="stages">
+    {stages.map((s, i) => (
+      <li class="stage">
+        <span class="node" data-accent={s.name === "Planner" ? "" : undefined} aria-hidden="true"></span>
+        <p class="kicker num">{String(i + 1).padStart(2, "0")} · {s.tools}</p>
+        <h3 class="stage-name">{s.name}</h3>
+        <p class="small muted">{s.text}</p>
+      </li>
+    ))}
+  </ol>
+  <p class="small pipeline-foot">
+    All of it runs on one laptop with AWS open-source tools: LocalStack stands in for S3, SQS,
+    DynamoDB and Step Functions, and AWS SAM runs the same Lambda images the template deploys.
+  </p>
+</section>
+
+<style>
+  .pipeline-head {
+    display: grid;
+    gap: var(--s-3);
+    margin-bottom: var(--s-7);
+  }
+
+  .stages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+
+  .stage {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: var(--s-2);
+    padding-top: var(--s-5);
+  }
+
+  /* the line the stages hang from, with one cell per stage */
+  .stage::before {
+    content: "";
+    position: absolute;
+    top: 5px;
+    left: 0;
+    right: calc(-1 * var(--s-5));
+    height: 1px;
+    background: var(--ink);
+  }
+
+  .stage:last-child::before {
+    right: 0;
+  }
+
+  .node {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 11px;
+    height: 11px;
+    background: var(--ink);
+  }
+
+  .node[data-accent] {
+    background: var(--neem);
+  }
+
+  .stage-name {
+    font: 400 var(--t-xl) / 1.1 var(--serif);
+    letter-spacing: -0.01em;
+  }
+
+  .pipeline-foot {
+    max-width: 62ch;
+    margin-top: var(--s-7);
+  }
+
+  @media (max-width: 1100px) {
+    .stages {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-5);
+    }
+    /* vertical on narrow screens: the line runs down the left */
+    .stage {
+      padding: 0 0 0 var(--s-6);
+    }
+    .stage::before {
+      top: 0;
+      bottom: calc(-1 * var(--s-5));
+      left: 5px;
+      right: auto;
+      width: 1px;
+      height: auto;
+    }
+    .stage:last-child::before {
+      bottom: 0;
+    }
+    .stage-name {
+      font-size: var(--t-l);
+    }
+  }
+</style>

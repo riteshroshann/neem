@@ -1,0 +1,24 @@
+---
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Not found" description="This page doesn't exist. The schoolyards do." path="/404">
+  <section class="wrap missing page-head">
+    <h1 class="display">No shade at this address.</h1>
+    <p class="lede">The page you asked for doesn't exist. The schoolyards do.</p>
+    <a class="button" href="/">Back to the schoolyards</a>
+  </section>
+</Base>
+
+<style>
+  .missing {
+    display: grid;
+    gap: var(--s-6);
+    justify-items: start;
+    padding-bottom: clamp(96px, 14vw, 200px);
+  }
+
+  .missing .display {
+    max-width: 12ch;
+  }
+</style>

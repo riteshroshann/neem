@@ -69,13 +69,23 @@ function decode(buf: ArrayBuffer, cells: number, offset: number, scale: number):
   return out;
 }
 
+/** Gunzip if the bytes are still gzipped (a CDN may already have decoded them). */
+async function inflate(buf: ArrayBuffer): Promise<ArrayBuffer> {
+  const head = new Uint8Array(buf, 0, 2);
+  if (head[0] !== 0x1f || head[1] !== 0x8b) return buf;
+  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new Response(stream).arrayBuffer();
+}
+
 export async function loadTwin(id: string, base = "/twins"): Promise<Twin> {
   const root = `${base}/${id}`;
   const [summary, cal, child, bin] = await Promise.all([
     fetch(`${root}/twin.json`).then((r) => r.json() as Promise<TwinSummary>),
     fetch(`${root}/calibration.json`).then((r) => r.json() as Promise<{ hours: HourModel[] }>),
     fetch(`${root}/child.json`).then((r) => r.json() as Promise<Twin["child"]>),
-    fetch(`${root}/layers.bin`).then((r) => r.arrayBuffer()),
+    fetch(`${root}/layers.bin.gz`)
+      .then((r) => r.arrayBuffer())
+      .then(inflate),
   ]);
   const cells = summary.grid.rows * summary.grid.cols;
   const layer = (name: string) => {
@@ -121,16 +131,16 @@ export function groundMean(values: Float32Array, zones: Uint8Array): number {
   return n ? sum / n : Number.NaN;
 }
 
-/** Share of ground cells in each UTCI band, given ascending lower bounds. */
+/** Share of ground cells in each band: below the first bound, then from each bound up. */
 export function bandShares(values: Float32Array, zones: Uint8Array, bounds: number[]): number[] {
-  const counts = new Array(bounds.length).fill(0) as number[];
+  const counts = new Array(bounds.length + 1).fill(0) as number[];
   let n = 0;
   for (let i = 0; i < values.length; i++) {
     if (zones[i] !== 1) continue;
     n++;
     const v = values[i] as number;
     let k = 0;
-    for (let b = 0; b < bounds.length; b++) if (v >= (bounds[b] as number)) k = b;
+    for (let b = 0; b < bounds.length; b++) if (v >= (bounds[b] as number)) k = b + 1;
     counts[k] = (counts[k] ?? 0) + 1;
   }
   return counts.map((c) => (n ? c / n : 0));

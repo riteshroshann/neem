@@ -1,0 +1,311 @@
+---
+import { readFileSync } from "node:fs";
+import ranking from "../data/ranking.json";
+import showcase from "../data/showcase.json";
+import { delhiMap } from "../lib/delhi";
+import { heatHex } from "../lib/palette";
+import { YARD_LEGEND, YARDS_BY_HEAT, yardHex } from "../lib/yards";
+
+const { stats, schools } = ranking;
+const id = showcase.school_id;
+const school = schools.find((s) => s.school_id === id);
+const { cell, grid, sun } = showcase;
+
+// 01: the city, every yard a dot, hottest drawn last
+const map = delhiMap(600, 14);
+const here = school ? { x: map.x(school.lon), y: map.y(school.lat) } : { x: 0, y: 0 };
+
+// 04: the child's core temperature over the morning shift, from the stored JOS-3 run
+const child = JSON.parse(readFileSync(`public/twins/${id}/child.json`, "utf-8")).morning as {
+  minutes: number[];
+  rise: number[];
+  labels: string[];
+  peak_rise: number;
+  total_water_ml: number;
+};
+const CW = 300;
+const CH = 300;
+const plot = { l: 18, r: 282, t: 64, b: 252 };
+const last = child.minutes[child.minutes.length - 1] ?? 1;
+// the y-axis tops out a fifth above the peak, in tenths of a degree, so the peak and its label
+// always fit; never below 1 °C, so a small rise still looks small
+const top = Math.max(1, Math.ceil(child.peak_rise * 1.2 * 10) / 10);
+const cx = (m: number) => plot.l + (m / last) * (plot.r - plot.l);
+const cy = (v: number) => plot.b - (v / top) * (plot.b - plot.t);
+const line = child.minutes
+  .map((m, i) => `${i ? "L" : "M"}${cx(m).toFixed(1)},${cy(child.rise[i] ?? 0).toFixed(1)}`)
+  .join("");
+// outdoor stretches of the shift, where the yard's heat reaches the child
+const outdoors: { label: string; from: number; to: number }[] = [];
+child.labels.forEach((label, i) => {
+  if (label === "Class") return;
+  const run = outdoors[outdoors.length - 1];
+  if (run && run.label === label && run.to === i) run.to = i + 1;
+  else outdoors.push({ label, from: i, to: i + 1 });
+});
+const peakAt = child.rise.indexOf(Math.max(...child.rise));
+const recess = outdoors.find((o) => o.label === "Recess");
+---
+
+<section class="wrap section scales rule" aria-labelledby="scales-title">
+  <div class="scales-head">
+    <p class="kicker">What Neem computes</p>
+    <h2 class="title" id="scales-title">From a city of schools to one child</h2>
+  </div>
+  <ol class="scales-row">
+    <li class="scale">
+      <p class="kicker">01 · Delhi</p>
+      <div class="scale-body">
+        <svg viewBox={`0 0 ${map.width} ${map.height}`} role="img" aria-label={`Map of ${stats.schools} Delhi schoolyards coloured by heat`}>
+          <path d={map.outline} fill="var(--wash)" stroke="var(--line)" stroke-width="1.5"></path>
+          {YARDS_BY_HEAT.map((s) => (
+            <rect x={(map.x(s.lon) - 3.5).toFixed(1)} y={(map.y(s.lat) - 3.5).toFixed(1)} width="7" height="7" fill={yardHex(s.utci_mean)}></rect>
+          ))}
+          <rect class="target" x={here.x - 13} y={here.y - 13} width="26" height="26"></rect>
+        </svg>
+      </div>
+      <ul class="legend xs num">
+        {YARD_LEGEND.map((v) => (
+          <li><i style={`background:${yardHex(v)}`}></i>{v.toFixed(1)} °C</li>
+        ))}
+      </ul>
+      <p class="small"><span class="num">{stats.schools}</span> schoolyards, each scored by how hot its open ground feels.</p>
+    </li>
+    <li class="scale">
+      <p class="kicker">02 · One schoolyard</p>
+      <div class="scale-body">
+        <div class="yard" style={`aspect-ratio:${grid.cols}/${grid.rows}`}>
+          <img src={`/twins/${id}/map-1pm.png`} alt={`Heat map of ${showcase.name} at 1 pm`} width={grid.cols} height={grid.rows} loading="lazy" decoding="async" />
+          <span class="target" style={`left:${(((cell.col + 0.5) / grid.cols) * 100).toFixed(2)}%;top:${(((cell.row + 0.5) / grid.rows) * 100).toFixed(2)}%`}></span>
+        </div>
+      </div>
+      <p class="small">{showcase.name}, 1 pm. SOLWEIG traces sun, shade and hot walls over every square metre.</p>
+    </li>
+    <li class="scale">
+      <p class="kicker">03 · One square metre</p>
+      <div class="scale-body">
+        <div class="cell" style={`--cell:${heatHex(cell.utci)}`}>
+          <span class="cell-value num">{cell.utci.toFixed(1)}<small>°C</small></span>
+          <span class="cell-caption">feels like</span>
+        </div>
+      </div>
+      <dl class="inputs xs num">
+        <div><dt>Air</dt><dd>{cell.ta.toFixed(1)} °C</dd></div>
+        <div><dt>Radiant</dt><dd>{cell.tmrt.toFixed(1)} °C</dd></div>
+        <div><dt>Sun</dt><dd>{Math.round(sun.altitude)}° high</dd></div>
+        <div><dt>Wind</dt><dd>{cell.ws.toFixed(1)} m/s</dd></div>
+        <div><dt>Humidity</dt><dd>{Math.round(cell.rh)}%</dd></div>
+      </dl>
+    </li>
+    <li class="scale">
+      <p class="kicker">04 · One child</p>
+      <div class="scale-body">
+        <svg viewBox={`0 0 ${CW} ${CH}`} role="img" aria-label={`A nine-year-old's core temperature rises ${child.peak_rise.toFixed(2)} °C over the morning shift and loses ${Math.round(child.total_water_ml)} ml of water`}>
+          {outdoors.map((o) => (
+            <g>
+              <rect x={cx(o.from).toFixed(1)} y={plot.t} width={Math.max(2, cx(o.to) - cx(o.from)).toFixed(1)} height={plot.b - plot.t} fill="var(--wash)"></rect>
+            </g>
+          ))}
+          <line x1={plot.l} x2={plot.r} y1={plot.b} y2={plot.b} stroke="var(--ink)"></line>
+          <path d={line} fill="none" stroke="var(--ink)" stroke-width="2.25" stroke-linejoin="round"></path>
+          <circle cx={cx(child.minutes[peakAt] ?? 0)} cy={cy(child.peak_rise)} r="4.5" fill="var(--heat-extreme)"></circle>
+          <text class="peak num" x={cx(child.minutes[peakAt] ?? 0) - 8} y={cy(child.peak_rise) - 14} text-anchor="end">+{child.peak_rise.toFixed(2)} °C</text>
+          <text class="axis" x={plot.l} y={plot.b + 22}>7:30</text>
+          {recess && <text class="axis" x={(cx(recess.from) + cx(recess.to)) / 2} y={plot.b + 22} text-anchor="middle">recess</text>}
+          <text class="axis" x={plot.r} y={plot.b + 22} text-anchor="end">12:45</text>
+        </svg>
+      </div>
+      <p class="small">A nine-year-old's core heats by <span class="num">{child.peak_rise.toFixed(2)} °C</span> and sweats <span class="num">{Math.round(child.total_water_ml)} ml</span>. Shaded bands are time outdoors.</p>
+    </li>
+  </ol>
+</section>
+
+<style>
+  .scales-head {
+    display: grid;
+    gap: var(--s-3);
+    margin-bottom: var(--s-7);
+  }
+
+  .scales-row {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-6);
+  }
+
+  .scale {
+    display: grid;
+    gap: var(--s-3);
+    align-content: start;
+    min-width: 0;
+  }
+
+  /* a fixed square: everything inside is placed absolutely, so content never sizes the frame */
+  .scale-body {
+    position: relative;
+    aspect-ratio: 1;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+  }
+
+  .scale-body > svg {
+    position: absolute;
+    inset: var(--s-3);
+    width: calc(100% - 2 * var(--s-3));
+    height: calc(100% - 2 * var(--s-3));
+  }
+
+  /* a thin arrow across the gap to the next, closer scale */
+  .scale:not(:last-child) .scale-body::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: calc(-1 * var(--s-6) + 6px);
+    width: calc(var(--s-6) - 12px);
+    height: 1px;
+    background: var(--ink);
+  }
+
+  .scale:not(:last-child) .scale-body::before {
+    content: "";
+    position: absolute;
+    top: calc(50% - 3.5px);
+    right: calc(-1 * var(--s-6) + 6px);
+    width: 7px;
+    height: 7px;
+    border-top: 1px solid var(--ink);
+    border-right: 1px solid var(--ink);
+    transform: rotate(45deg);
+  }
+
+  .yard {
+    position: absolute;
+    top: var(--s-3);
+    bottom: var(--s-3);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .yard img {
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+  }
+
+  /* the city map stretches the ramp over the yards' range, so it says what each colour means */
+  .legend {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-3);
+    color: var(--muted);
+  }
+
+  .legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+
+  .target {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2.5;
+  }
+
+  span.target {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid var(--paper);
+    outline: 1.5px solid var(--ink);
+  }
+
+  .cell {
+    position: absolute;
+    inset: 14%;
+    background: var(--cell);
+    color: var(--paper);
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: var(--s-1);
+  }
+
+  .cell-value {
+    font: 400 clamp(2.25rem, 4vw, 3.5rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+  }
+
+  .cell-value small {
+    font-size: 0.5em;
+    margin-left: 2px;
+  }
+
+  .cell-caption {
+    font-size: var(--t-xs);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .inputs {
+    display: grid;
+    grid-template-columns: repeat(5, auto);
+    justify-content: space-between;
+    gap: var(--s-2);
+    margin: 0;
+  }
+
+  .inputs dt {
+    color: var(--muted);
+  }
+
+  .inputs dd {
+    margin: 2px 0 0;
+    white-space: nowrap;
+  }
+
+  .peak {
+    font: 500 15px var(--sans);
+    fill: var(--ink);
+  }
+
+  .axis {
+    font: 400 12px var(--sans);
+    fill: var(--muted);
+  }
+
+  @media (max-width: 1100px) {
+    .scales-row {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: var(--s-7);
+    }
+    .scale:nth-child(2n) .scale-body::after,
+    .scale:nth-child(2n) .scale-body::before {
+      display: none;
+    }
+  }
+
+  @media (max-width: 620px) {
+    .scales-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .scale .scale-body::after,
+    .scale .scale-body::before {
+      display: none;
+    }
+    .inputs {
+      grid-template-columns: repeat(3, auto);
+      justify-content: start;
+      column-gap: var(--s-5);
+    }
+  }
+</style>

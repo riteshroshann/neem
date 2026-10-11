@@ -1,0 +1,72 @@
+---
+// The feels-like scale as one row of 1 °C cells, ticked at the UTCI heat-stress thresholds.
+import { BANDS, heatHex } from "../lib/palette";
+
+const LO = 24;
+const HI = 50;
+const cells = Array.from({ length: HI - LO }, (_, i) => LO + i);
+const at = (t: number) => `${(((t - LO) / (HI - LO)) * 100).toFixed(2)}%`;
+const named = BANDS.flatMap((b) => (b.min === null ? [] : [{ name: b.name, from: b.min }]));
+const spans = named.map((b, i) => ({ ...b, to: named[i + 1]?.from ?? HI }));
+const summary = spans.map((s) => `${s.name.toLowerCase()} from ${s.from} °C`).join(", ");
+---
+
+<div class="heat-scale" role="img" aria-label={`Feels-like temperature, UTCI heat stress: ${summary}.`}>
+  <div class="cells">
+    {cells.map((t) => <i style={`background:${heatHex(t + 0.5)}`}></i>)}
+  </div>
+  <div class="marks" aria-hidden="true">
+    {spans.map((s) => <span class="tick num" style={`left:${at(s.from)}`}>{s.from}°</span>)}
+    {spans.map((s) => <span class="name" style={`left:${at((s.from + s.to) / 2)}`}>{s.name}</span>)}
+  </div>
+</div>
+
+<style>
+  .heat-scale {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .cells {
+    display: grid;
+    grid-template-columns: repeat(26, minmax(0, 1fr));
+    gap: 2px;
+  }
+
+  .cells i {
+    height: 10px;
+  }
+
+  .marks {
+    position: relative;
+    height: 34px;
+    font-size: var(--t-xs);
+  }
+
+  .marks span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  .tick {
+    top: 0;
+    padding-top: 4px;
+    border-left: 1px solid var(--ink);
+    color: var(--ink);
+    transform: none;
+    padding-left: 3px;
+  }
+
+  .name {
+    top: 17px;
+    color: var(--muted);
+  }
+
+  @media (forced-colors: active) {
+    .cells i {
+      forced-color-adjust: none;
+    }
+  }
+</style>

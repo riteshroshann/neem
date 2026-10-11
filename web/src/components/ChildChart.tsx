@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { ChildDay } from "../lib/twin";
 
 interface Props {
@@ -6,7 +7,6 @@ interface Props {
   start?: string; // clock time of minute 0
 }
 
-const W = 760;
 const H = 240;
 const PAD = { top: 36, right: 16, bottom: 32, left: 44 };
 
@@ -46,6 +46,18 @@ function labelled(
 }
 
 export default function ChildChart({ today, plan, start = "7:30" }: Props) {
+  // One SVG unit per screen pixel, so labels stay 11 px from a phone to a wide screen.
+  const box = useRef<HTMLElement>(null);
+  const [W, setW] = useState(760);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      if (entry) setW(Math.max(300, Math.round(entry.contentRect.width)));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const n = today.rise.length;
   const peak = Math.max(1.2, today.peak_rise + 0.15, plan ? plan.peak_rise + 0.15 : 0);
   const x = (i: number) => PAD.left + (i / n) * (W - PAD.left - PAD.right);
@@ -56,9 +68,11 @@ export default function ChildChart({ today, plan, start = "7:30" }: Props) {
   const outdoors = new Set(["Assembly", "Recess", "Walk home"]);
 
   return (
-    <figure className="child-chart">
+    <figure className="child-chart" ref={box}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
+        width={W}
+        height={H}
         role="img"
         aria-label={`Core temperature rise through the school day: peak ${today.peak_rise.toFixed(
           2,
@@ -91,7 +105,7 @@ export default function ChildChart({ today, plan, start = "7:30" }: Props) {
           <g key={t}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(t)} y2={y(t)} stroke="var(--line)" />
             <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end" className="tick">
-              {t === 0 ? "rest" : `+${t}°`}
+              {t === 0 ? "rest" : `+${t} °C`}
             </text>
           </g>
         ))}

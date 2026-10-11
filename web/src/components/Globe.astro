@@ -1,0 +1,231 @@
+---
+import showcase from "../data/showcase.json";
+import { BAND_COLOURS, SUN_BANDS } from "../lib/globe";
+
+const { day, sun } = showcase;
+const [sunLat, sunLon] = sun.subsolar as [number, number];
+const altitude = Math.round(sun.altitude);
+const date = new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+// the model's hour, "13:00", the way the site says it: "1 pm"
+const h = Number.parseInt(sun.hour, 10);
+const hour = `${h % 12 || 12} ${h < 12 ? "am" : "pm"}`;
+const deg = (v: number, pos: string, neg: string) =>
+  `${Math.abs(v).toFixed(1)}° ${v >= 0 ? pos : neg}`;
+const overhead = `${deg(sunLat, "N", "S")}, ${deg(sunLon, "E", "W")}`;
+const bands = [
+  `under ${SUN_BANDS[0]}°`,
+  `${SUN_BANDS[0]}–${SUN_BANDS[1]}°`,
+  `${SUN_BANDS[1]}–${SUN_BANDS[2]}°`,
+  `over ${SUN_BANDS[2]}°`,
+].map((label, i) => ({ label, hex: BAND_COLOURS[i] }));
+---
+
+<figure class="globe" data-globe data-sun={JSON.stringify(sun.subsolar)} data-site={JSON.stringify(sun.site)}>
+  <div class="globe-stage">
+    <canvas
+      role="img"
+      aria-label={`The Earth on ${date}, coloured by the height of the sun the model used for the ${hour} hour in Delhi, where it stood at ${sun.at}. It is straight overhead at ${overhead}, and ${altitude}° above the schoolyard in Delhi.`}
+    ></canvas>
+    <svg class="globe-marks" aria-hidden="true">
+      <polyline class="lead" data-lead="site" points=""></polyline>
+      <polyline class="lead" data-lead="sun" points=""></polyline>
+      <rect class="mark" data-mark="site" width="13" height="13"></rect>
+      <circle class="mark" data-mark="sun" r="6.5"></circle>
+    </svg>
+    <p class="globe-label" data-label="site" aria-hidden="true">
+      <b>Delhi, {hour}</b> sun {altitude}° high
+    </p>
+    <p class="globe-label" data-label="sun" aria-hidden="true">
+      <b>Sun overhead</b>
+      {overhead}
+    </p>
+  </div>
+  <figcaption class="globe-legend">
+    <span class="kicker">Sun height</span>
+    <ol class="xs num">
+      {bands.map((b) => (
+        <li><i style={`background:${b.hex}`}></i>{b.label}</li>
+      ))}
+    </ol>
+    <span class="xs muted globe-hint">Drag to turn</span>
+  </figcaption>
+</figure>
+
+<script>
+  import { createGlobe } from "../lib/globe";
+
+  type LatLon = [number, number];
+
+  for (const fig of document.querySelectorAll<HTMLElement>("[data-globe]")) {
+    const canvas = fig.querySelector("canvas");
+    if (!canvas) continue;
+    const sun = JSON.parse(fig.dataset.sun ?? "[0,0]") as LatLon;
+    const site = JSON.parse(fig.dataset.site ?? "[0,0]") as LatLon;
+    // settle between Delhi and the point under the sun, so both sit near the centre
+    const focus: LatLon = [(sun[0] + site[0]) / 2, (sun[1] + site[1]) / 2];
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const q = <T extends Element>(sel: string) => fig.querySelector<T>(sel);
+
+    const place = (settled: boolean) => {
+      fig.classList.toggle("is-settled", settled);
+      if (!settled) return;
+      const width = canvas.clientWidth;
+      for (const [key, at, dir] of [
+        ["site", site, 1],
+        ["sun", sun, -1],
+      ] as const) {
+        const p = globe.project(at);
+        const label = q<HTMLElement>(`[data-label="${key}"]`);
+        const lead = q<SVGPolylineElement>(`[data-lead="${key}"]`);
+        const mark = q<SVGGraphicsElement>(`[data-mark="${key}"]`);
+        if (!p || !label || !lead || !mark) continue;
+        if (mark instanceof SVGRectElement) {
+          mark.setAttribute("x", String(p.x - 6.5));
+          mark.setAttribute("y", String(p.y - 6.5));
+        } else {
+          mark.setAttribute("cx", String(p.x));
+          mark.setAttribute("cy", String(p.y));
+        }
+        // Delhi's label goes up and right, the sun's down and left; flip if it would leave the stage
+        let side = dir;
+        const reach = label.offsetWidth + 44;
+        if (side > 0 && p.x + reach > width) side = -1;
+        if (side < 0 && p.x - reach < 0) side = 1;
+        const ex = p.x + side * 30;
+        const ey = p.y - dir * 30;
+        lead.setAttribute("points", `${p.x + side * 7},${p.y - dir * 7} ${ex},${ey} ${ex + side * 10},${ey}`);
+        label.style.left = `${ex + side * 14}px`;
+        label.style.top = `${ey}px`;
+        label.dataset.side = side > 0 ? "right" : "left";
+      }
+    };
+
+    const globe = createGlobe(canvas, { sun, focus, intro: !reduce, draggable: true, onSettle: place });
+    if (reduce) place(true);
+  }
+</script>
+
+<style>
+  .globe {
+    margin: 0;
+    display: grid;
+    gap: var(--s-4);
+  }
+
+  .globe-stage {
+    position: relative;
+    aspect-ratio: 1;
+  }
+
+  canvas {
+    width: 100%;
+    height: 100%;
+    touch-action: pan-y;
+    cursor: grab;
+  }
+
+  canvas:active {
+    cursor: grabbing;
+  }
+
+  .globe-marks {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    pointer-events: none;
+  }
+
+  .lead,
+  .mark {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.25;
+  }
+
+  .mark[data-mark="site"] {
+    stroke-width: 1.75;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: beat 2.4s ease-out infinite;
+  }
+
+  @keyframes beat {
+    0%,
+    60%,
+    100% {
+      transform: scale(1);
+    }
+    20% {
+      transform: scale(1.35);
+    }
+  }
+
+  .globe-label {
+    position: absolute;
+    transform: translateY(-50%);
+    display: grid;
+    padding: 4px 8px;
+    background: var(--paper);
+    border: 1px solid var(--ink);
+    font-size: var(--t-xs);
+    line-height: 1.35;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  .globe-label[data-side="left"] {
+    transform: translate(-100%, -50%);
+    text-align: right;
+  }
+
+  .globe-label b {
+    font-weight: 600;
+  }
+
+  .globe-marks,
+  .globe-label {
+    opacity: 0;
+    transition: opacity 240ms ease;
+  }
+
+  .is-settled .globe-marks,
+  .is-settled .globe-label {
+    opacity: 1;
+  }
+
+  .globe-legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2) var(--s-4);
+  }
+
+  .globe-legend ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-4);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .globe-legend i {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    vertical-align: -1px;
+  }
+
+  .globe-hint {
+    margin-left: auto;
+  }
+</style>

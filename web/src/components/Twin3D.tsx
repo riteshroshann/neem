@@ -42,7 +42,7 @@ export default function Twin3D({ twin, cdsm, utci }: Props) {
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(width, height);
-        renderer.setClearColor(0xffffff);
+        renderer.setClearColor(0xfaf7f1);
         el.appendChild(renderer.domElement);
 
         const scene = new THREE.Scene();

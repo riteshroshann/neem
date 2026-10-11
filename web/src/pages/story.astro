@@ -1,0 +1,686 @@
+---
+import { readFileSync } from "node:fs";
+import Globe from "../components/Globe.astro";
+import ranking from "../data/ranking.json";
+import showcase from "../data/showcase.json";
+import Base from "../layouts/Base.astro";
+import { lakh, pct, rupees, temp } from "../lib/format";
+import { heatHex } from "../lib/palette";
+import { CANOPY_QUARTERS } from "../lib/yards";
+
+// Every number in this story is read from the files the rest of the site is built from.
+interface Child {
+  minutes: number[];
+  rise: number[];
+  labels?: string[];
+  peak_rise: number;
+  total_water_ml: number;
+}
+const read = (path: string) => JSON.parse(readFileSync(path, "utf-8"));
+const { stats, schools } = ranking;
+const { cell, plan, sun, grid, school_id: id, name } = showcase;
+const today = read(`public/twins/${id}/child.json`).morning as Child;
+const kvPlan = read(`public/twins/${id}/plan.json`);
+const withPlan = kvPlan.verified.child as Child;
+const sose = read("public/twins/osm-w1096874054/plan.json");
+const at1 = (p: { verified: { hours: string[]; utci_ground_by_hour: number[] } }) =>
+  p.verified.utci_ground_by_hour[p.verified.hours.indexOf("13:00")] ?? Number.NaN;
+const soseDrop = sose.baseline.hours["13:00"].today - at1(sose);
+
+const [yardToday, yardPlan] = plan.yard_1pm as [number, number];
+const { heat: bareHeat, cover: bareCover } = CANOPY_QUARTERS.bare;
+const { heat: leafyHeat, cover: leafyCover } = CANOPY_QUARTERS.leafy;
+
+// Figure: tree cover against yard heat, one cell per school, with a least-squares line
+const SW = 720;
+const SH = 440;
+const sp = { l: 60, r: 20, t: 40, b: 58 };
+const yLo = Math.floor(stats.utci_min) - 0.5;
+const yHi = Math.ceil(stats.utci_max) + 0.5;
+const sx = (c: number) => sp.l + c * (SW - sp.l - sp.r);
+const sy = (u: number) => sp.t + ((yHi - u) / (yHi - yLo)) * (SH - sp.t - sp.b);
+const n = schools.length;
+const mx = schools.reduce((s, x) => s + x.canopy_cover, 0) / n;
+const my = schools.reduce((s, x) => s + x.utci_mean, 0) / n;
+const slope =
+  schools.reduce((s, x) => s + (x.canopy_cover - mx) * (x.utci_mean - my), 0) /
+  schools.reduce((s, x) => s + (x.canopy_cover - mx) ** 2, 0);
+const fit = (c: number) => my + slope * (c - mx);
+const yTicks = Array.from({ length: Math.round(yHi - yLo) }, (_, i) => Math.ceil(yLo) + i);
+const kvDot = schools.find((s) => s.school_id === id);
+
+// Figure: the child's morning, today and with the trees
+const CW = 720;
+const CH = 300;
+const cp = { l: 48, r: 132, t: 28, b: 46 };
+const last = today.minutes[today.minutes.length - 1] ?? 1;
+const top = Math.max(1, Math.ceil(today.peak_rise * 12) / 10);
+const cx = (m: number) => cp.l + (m / last) * (CW - cp.l - cp.r);
+const cy = (v: number) => cp.t + (1 - v / top) * (CH - cp.t - cp.b);
+const line = (c: Child) =>
+  c.minutes
+    .map((m, i) => `${i ? "L" : "M"}${cx(m).toFixed(1)},${cy(c.rise[i] ?? 0).toFixed(1)}`)
+    .join("");
+const outdoors: { label: string; from: number; to: number }[] = [];
+(today.labels ?? []).forEach((label, i) => {
+  if (label === "Class") return;
+  const run = outdoors[outdoors.length - 1];
+  if (run && run.label === label && run.to === i) run.to = i + 1;
+  else outdoors.push({ label, from: i, to: i + 1 });
+});
+const endY = (c: Child) => cy(c.rise[c.rise.length - 1] ?? 0);
+const peakAt = today.rise.indexOf(Math.max(...today.rise));
+---
+
+<Base
+  title={`The air said ${Math.round(cell.ta)} °C. The schoolyard said ${Math.round(cell.utci)}.`}
+  description="How Neem was built: a heat map of 766 Delhi schoolyards, a body twin for the children who play in them, and a planning agent that has to prove its trees work."
+  path="/story"
+>
+  <article class="story">
+    <header class="story-head page-head">
+      <p class="kicker">The story behind Neem</p>
+      <h1 class="story-title">
+        The air said {Math.round(cell.ta)}&nbsp;°C. The schoolyard said&nbsp;<em
+          style={`color:${heatHex(cell.utci)}`}>{Math.round(cell.utci)}.</em>
+      </h1>
+      <p class="dek">
+        How I built Neem: a heat map of {stats.schools} Delhi schoolyards, a body twin for the
+        children who play in them, and a planning agent that has to prove its trees work.
+      </p>
+      <p class="byline small muted">Ritesh Roshan · 11 October 2026 · 6&nbsp;min read</p>
+    </header>
+
+    <figure class="lead">
+      <Globe />
+      <figcaption class="small muted">
+        The sun as the model saw it for the 1&nbsp;pm hour: straight overhead just off the Karnataka
+        coast, and {Math.round(sun.altitude)}° above the yard in Rohini. Drag to turn the Earth.
+      </figcaption>
+    </figure>
+
+    <p class="opening">
+      It's half past twelve on Monday 27 April 2026, the hottest school day Delhi had between April
+      and the summer holidays. At {name}, the bell goes and the morning shift heads home across the
+      open yard.
+    </p>
+    <p>
+      The weather report for that hour says {Math.round(cell.ta)}&nbsp;°C. Dry, too: {Math.round(cell.rh)}% humidity and a {cell.ws.toFixed(1)}&nbsp;m/s breeze.
+    </p>
+    <p>
+      Nobody in that yard feels the air. They feel the sun, {Math.round(sun.altitude)}° up and
+      leaving almost nowhere to hide, and the heat pouring back off ground and walls that have been
+      soaking it up since sunrise. Add all of that together and the mean radiant temperature on one
+      square metre at the centre of the yard is {temp(cell.tmrt)}. The feels-like temperature, the
+      UTCI that heat-health researchers use, is {temp(cell.utci)}. Extreme heat stress starts at
+      46.
+    </p>
+
+    <figure class="metre wide">
+      <dl class="inputs num">
+        <div><dt>Air</dt><dd>{temp(cell.ta)}</dd></div>
+        <div><dt>Radiant</dt><dd>{temp(cell.tmrt)}</dd></div>
+        <div><dt>Wind</dt><dd>{cell.ws.toFixed(1)}&nbsp;m/s</dd></div>
+        <div><dt>Humidity</dt><dd>{Math.round(cell.rh)}%</dd></div>
+      </dl>
+      <span class="arrow" aria-hidden="true">→</span>
+      <div class="heat-cell" style={`background:${heatHex(cell.utci)}`}>
+        <span class="heat-value num">{cell.utci.toFixed(1)}<small>°C</small></span>
+        <span class="xs">feels like</span>
+      </div>
+      <figcaption class="small muted">
+        One square metre at the centre of the yard, 1&nbsp;pm. SOLWEIG turns sun, shade and hot
+        surfaces into the radiant temperature; UTCI weighs it with air, wind and humidity.
+      </figcaption>
+    </figure>
+
+    <p>
+      Now rewind to 7:30. Assembly in the yard. Class from 7:50. Recess at ten: half an hour of
+      running about in the sun. Class again, then the walk home. Neem follows a nine-year-old
+      through that morning minute by minute, and recess alone lifts their core temperature from {temp(today.rise[150] ?? 0, 2)} above rest to {temp(today.peak_rise, 2)}. By 12:45 they have
+      sweated and breathed out {Math.round(today.total_water_ml)}&nbsp;ml of water. Nearly a litre,
+      before lunch.
+    </p>
+    <p>
+      The teachers who stand in that yard know all this in their bones. What nobody has is an
+      answer to the next question. If we plant trees, which ones, where, and how much cooler will
+      it be? A neem costs about ₹3,500 and takes five years to grow a proper crown, which is a long
+      time to wait to learn you planted it in the wrong spot. I built Neem so a school can find out
+      first.
+    </p>
+
+    <h2>Heat, the way a body feels it</h2>
+    <p>
+      A thermometer measures air. A body is busier than that: it soaks up direct sun, the glow of
+      the sky and every warm surface in sight. So Neem runs SOLWEIG, the radiation model Fredrik
+      Lindberg and colleagues built at the University of Gothenburg. For every square metre of a
+      yard it works out where the sun falls, where buildings and tree crowns throw shade, how much
+      sky each spot can see and how much heat the ground and walls give back. On my laptop's 6&nbsp;GB
+      GPU, one school takes about four seconds.
+    </p>
+    <p>
+      Everything it needs is open, and most of it already lives on AWS. Buildings come from
+      Overture Maps: only 3 of the release's 512 files overlap Delhi, so Neem asks the STAC
+      catalogue for those three and reads 1.9 million footprints in two minutes. Tree heights come
+      from the canopy map Meta and WRI publish on AWS Open Data, the ground from Copernicus, the
+      schools from OpenStreetMap's volunteers and the weather from ERA5 through Open-Meteo. This
+      project is mostly their work, carefully rearranged.
+    </p>
+
+    <h2>What {stats.schools} yards say</h2>
+    <p>
+      Then Neem ranks the city: {stats.schools} schoolyards, modelled at 2&nbsp;m for 9&nbsp;am,
+      11&nbsp;am and 1&nbsp;pm, in about ten minutes. Every yard sat under the same sky that Monday,
+      so whatever separates them was built or planted there.
+    </p>
+    <p>
+      It's shade. The leafiest quarter of yards, with {pct(leafyCover)} tree cover
+      over open ground, averaged {temp(leafyHeat)}. The barest quarter, at {pct(bareCover)}, averaged {temp(bareHeat)}. Across all {stats.schools}, tree
+      cover and yard heat correlate at r&nbsp;=&nbsp;{stats.canopy_heat_r.toFixed(2).replace("-", "−")}.
+      And one yard in three spent more than a quarter of the school morning above 46&nbsp;°C.
+    </p>
+
+    <figure class="wide">
+      <svg
+        class="scatter"
+        viewBox={`0 0 ${SW} ${SH}`} role="img"
+        aria-label={`${stats.schools} Delhi schoolyards: the more tree cover over open ground, the cooler the yard. The leafiest quarter averages ${temp(leafyHeat)}, the barest ${temp(bareHeat)}.`}
+      >
+        {yTicks.map((t) => (
+          <g>
+            <line x1={sp.l} x2={SW - sp.r} y1={sy(t)} y2={sy(t)} class="grid"></line>
+            <text x={sp.l - 10} y={sy(t) + 4} text-anchor="end" class="tick">{t}°</text>
+          </g>
+        ))} {[0, 0.25, 0.5, 0.75, 1].map((c) => (
+          <text x={sx(c)} y={SH - sp.b + 22} text-anchor="middle" class="tick">{pct(c)}</text>
+        ))} {schools.map((s) => (
+          <rect x={(sx(s.canopy_cover) - 3).toFixed(1)} y={(sy(s.utci_mean) - 3).toFixed(1)} width="6" height="6" fill={heatHex(s.utci_mean)}></rect>
+        ))}
+        <line x1={sx(0)} y1={sy(fit(0))} x2={sx(1)} y2={sy(fit(1))} class="fit"></line>
+        {kvDot && (
+          <g>
+            <rect x={sx(kvDot.canopy_cover) - 8} y={sy(kvDot.utci_mean) - 8} width="16" height="16" class="mark"></rect>
+            <text x={sx(kvDot.canopy_cover) + 14} y={sy(kvDot.utci_mean) - 10} class="note">KV Sector 25, Rohini</text>
+          </g>
+        )}
+        <circle cx={sx(leafyCover)} cy={sy(leafyHeat)} r="7" class="ring"></circle>
+        <polyline points={`${sx(leafyCover)},${sy(leafyHeat) - 8} ${sx(leafyCover)},${sy(44.3) + 6}`} class="lead"></polyline>
+        <text x={sx(leafyCover) - 8} y={sy(44.3)} text-anchor="end" class="note">Leafiest quarter: {temp(leafyHeat)}</text>
+        <circle cx={sx(bareCover)} cy={sy(bareHeat)} r="7" class="ring"></circle>
+        <polyline points={`${sx(bareCover)},${sy(bareHeat) + 8} ${sx(bareCover)},${sy(40.2) - 12}`} class="lead"></polyline>
+        <text x={sx(bareCover) + 8} y={sy(40.2)} class="note">Barest quarter: {temp(bareHeat)}</text>
+        <text x={sp.l - 40} y={16} class="axis">Yard feels-like, mean of 9 am, 11 am and 1 pm (°C)</text>
+        <text x={SW - sp.r} y={SH - 8} text-anchor="end" class="axis">Tree cover over open ground</text>
+      </svg>
+      <figcaption class="small muted">
+        Each square is one schoolyard, coloured by its average feels-like temperature. The dashed
+        line is the least-squares fit. Same weather everywhere; the spread is buildings and trees.
+      </figcaption>
+    </figure>
+
+    <h2>One square metre at a time</h2>
+    <p>
+      Four government schools near DTU get the full treatment: a heat twin at 1&nbsp;m, hour by hour
+      from 7&nbsp;am to 1&nbsp;pm. Open one and plant neem, peepal, jamun or amaltas, or rig up a
+      shade sail, and the map changes under your cursor.
+    </p>
+    <p>
+      SOLWEIG can't keep up with a mouse, so the browser takes an honest shortcut. A TypeScript
+      preview recasts the shadows and predicts the change from the physics in about ten
+      milliseconds. Squares you haven't touched keep SOLWEIG's exact value, and where you plant, the
+      page tells you how far off the preview might be. When you like what you see, "Verify with
+      physics" hands the design to the real model.
+    </p>
+    <p>
+      The child is JOS-3, a 17-segment model of how a body keeps its temperature, from Yoshito
+      Takahashi and colleagues, run through Federico Tartarini's pythermalcomfort and scaled to a
+      1.32&nbsp;m, 28&nbsp;kg nine-year-old. It was built from adults, so Neem reports the rise above
+      the child's own resting state and says plainly that its numbers are indicative.
+    </p>
+
+    <h2>An agent that has to show its work</h2>
+    <p>
+      The planner is a Strands agent running qwen3 4B through Ollama, on the same laptop. It gets a
+      school, a budget and five tools, plus one rule I enforce in code: it doesn't get to make
+      numbers up.
+    </p>
+    <p>
+      The model decides how many trees, which species and whether a sail is worth the money. The
+      tools do the rest. They read the school's brief, plant on the hottest open ground a crown's
+      width apart, add a sail, preview, and verify. The budget lives inside the planting tool,
+      because a model can talk its way past a flag but not past a function that says no.
+    </p>
+    <p>
+      Small models wander, and this one did. Once it answered from imagination without calling a
+      single tool. Once it sailed past the budget. Both are guarded now, and if it forgets to
+      verify, the code verifies for it.
+    </p>
+    <blockquote class="pull">Physics gets the last word.</blockquote>
+    <p>
+      At KV Sector 25, with {lakh(kvPlan.budget_rs)} to spend, the agent planted {plan.trees} neems
+      for {rupees(plan.cost_rs)}. SOLWEIG checked the plan: at 1&nbsp;pm the yard drops from {temp(yardToday)} to {temp(yardPlan)}, the child's peak core rise from {temp(today.peak_rise, 2)} to {temp(withPlan.peak_rise, 2)}, and the water lost from {Math.round(today.total_water_ml)} to {Math.round(withPlan.total_water_ml)}&nbsp;ml. At the
+      School of Specialised Excellence, where the open ground is half the size, the same {plan.trees} neems take {temp(soseDrop)} off.
+    </p>
+
+    <figure class="wide pair">
+      <div>
+        <img src={`/twins/${id}/map-1pm.png`} alt={`${name} at 1 pm today: most of the yard is in extreme heat stress`} width={grid.cols} height={grid.rows} loading="lazy" decoding="async" />
+        <p class="small"><b>Today</b> · yard {temp(yardToday)}</p>
+      </div>
+      <div>
+        <img src={`/twins/${id}/map-1pm-plan.png`} alt={`${name} at 1 pm with ${plan.trees} neem trees: their shade breaks the yard into cooler pools`} width={grid.cols} height={grid.rows} loading="lazy" decoding="async" />
+        <p class="small"><b>With {plan.trees} neems</b> · yard {temp(yardPlan)}</p>
+      </div>
+      <figcaption class="small muted">
+        Feels-like temperature at 1&nbsp;pm, one cell per square metre, from two full SOLWEIG runs.
+        Grey blocks are roofs; colour beyond the school wall is faded.
+      </figcaption>
+    </figure>
+
+    <figure class="wide">
+      <svg
+        class="morning"
+        viewBox={`0 0 ${CW} ${CH}`} role="img"
+        aria-label={`The child's core temperature over the morning shift: it peaks at ${temp(today.peak_rise, 2)} above rest today and ${temp(withPlan.peak_rise, 2)} with the trees.`}
+      >
+        {outdoors.map((o) => (
+          <g>
+            <rect x={cx(o.from)} y={cp.t} width={Math.max(2, cx(o.to) - cx(o.from))} height={CH - cp.t - cp.b} class="band"></rect>
+            <text x={(cx(o.from) + cx(o.to)) / 2} y={cp.t - 8} text-anchor="middle" class="tick">{o.label.toLowerCase()}</text>
+          </g>
+        ))}
+        <line x1={cp.l} x2={CW - cp.r} y1={cy(0)} y2={cy(0)} class="base"></line>
+        <path d={line(today)} class="today"></path>
+        <path d={line(withPlan)} class="planned"></path>
+        <circle cx={cx(today.minutes[peakAt] ?? 0)} cy={cy(today.peak_rise)} r="4" class="peak"></circle>
+        <text x={CW - cp.r + 10} y={endY(today) - 6} class="note">Today</text>
+        <text x={CW - cp.r + 10} y={endY(withPlan) + 16} class="note green">With {plan.trees} neems</text>
+        <text x={cp.l} y={CH - 16} class="tick">7:30</text>
+        <text x={CW - cp.r} y={CH - 16} text-anchor="end" class="tick">12:45</text>
+        <text x={cp.l - 8} y={cy(0) + 4} text-anchor="end" class="tick">rest</text>
+        <text x={cp.l - 8} y={cy(1) + 4} text-anchor="end" class="tick">+1&nbsp;°C</text>
+      </svg>
+      <figcaption class="small muted">
+        A nine-year-old's core temperature above rest, minute by minute (JOS-3, scaled to a child).
+        Shaded bands are time outdoors. Peak: {temp(today.peak_rise, 2)} today, {temp(withPlan.peak_rise, 2)} under the trees.
+      </figcaption>
+    </figure>
+
+    <h2>Trust, then check again</h2>
+    <p>
+      Every number on the site has to trace back to a run I can repeat. Tests set independent
+      pieces against each other: my shadow caster agrees with SOLWEIG on more than 97% of cells,
+      and the preview's average error stays under 1&nbsp;°C on a design it was never calibrated on.
+      Those tests earned their keep. One caught SOLWEIG quietly rewriting the arrays it was handed.
+      Another caught DynamoDB refusing floating-point numbers.
+    </p>
+    <p>
+      The last check is the simplest. A command called <code>verify-plan</code> runs every plan
+      the agent has made through SOLWEIG again, from scratch. All four came back identical, down to the
+      child's minute-by-minute core temperature.
+    </p>
+
+    <h2>AWS open source, on one laptop</h2>
+    <p>
+      The hackathon's Build It track asks for AWS's open-source tools on your own machine, and Neem
+      leans on four. Strands Agents runs the planner. AWS SAM describes the serverless shape, from
+      the API and worker Lambdas to a Step Functions map that can rank schools on a hundred Lambdas
+      at once, and runs those same functions locally. LocalStack plays S3, SQS, DynamoDB and Step
+      Functions underneath. Cedar writes the rules down: anyone can explore, physics runs come with
+      a fair-use budget, and nobody, not even an admin, can approve a plan that physics hasn't
+      verified.
+    </p>
+    <p>
+      The home page opens on the Earth, drawn in the same square cells as the yard maps and lit by
+      the sun as the model saw it that hour. From there it zooms to Delhi, to one yard, to one
+      square metre and to one child.
+    </p>
+
+    <h2>What's next</h2>
+    <p>
+      Open data knows the height of only about 0.5% of Delhi's buildings, so the next step is a
+      phone: a short video of an empty yard, turned into measured heights on the same 1&nbsp;m grid.
+      After that, more schools, a body model built for children rather than scaled down from
+      adults, and the same SAM template running on AWS for real.
+    </p>
+    <p>
+      If you teach in a yard like this, run a school or plant trees for a living, I'd love to know
+      what Neem gets wrong. The code is open under GPL-3.0, and every plan on the site can be
+      re-run.
+    </p>
+
+    <div class="cells" aria-hidden="true"><i></i><i></i><i></i></div>
+
+    <p class="close">
+      {plan.trees} neems. <span class="glyph">₹</span>{rupees(plan.cost_rs).slice(1)}. {temp(yardToday - yardPlan)} off a schoolyard at
+      1&nbsp;pm. Every one of those numbers came out of a physics run, and every one comes back the
+      same when you run it again.
+    </p>
+
+    <nav class="next small" aria-label="Keep exploring">
+      <a href={`/school/${id}`}>Plant your own trees at KV Sector 25</a>
+      <a href="/method">Read the method</a>
+      <a href="https://github.com/riteshroshann/neem">Source on GitHub</a>
+    </nav>
+  </article>
+</Base>
+
+<style>
+  .story {
+    --col: 40rem;
+    --wide: 58rem;
+    padding: 0 var(--gutter) var(--section);
+  }
+
+  .story > * {
+    width: 100%;
+    max-width: var(--col);
+    margin-inline: auto;
+  }
+
+  .story > .wide,
+  .story > .lead {
+    max-width: var(--wide);
+  }
+
+  .story-head {
+    display: grid;
+    gap: var(--s-4);
+    padding-bottom: var(--s-7);
+  }
+
+  .story-title {
+    font: 400 clamp(2.5rem, 6vw, 4.75rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .story-title em {
+    font-style: normal;
+  }
+
+  .dek {
+    font-size: var(--t-l);
+    line-height: 1.45;
+    color: var(--ink);
+  }
+
+  .story > .lead {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-3);
+    margin-block: 0 var(--s-8);
+  }
+
+  .lead :global(.globe) {
+    width: min(100%, 520px);
+  }
+
+  .lead figcaption {
+    max-width: var(--col);
+    text-align: center;
+  }
+
+  .story > p {
+    font-size: 1.1875rem;
+    line-height: 1.7;
+    margin-top: 1.1em;
+  }
+
+  .opening::first-letter {
+    float: left;
+    font: 400 4.4em / 0.8 var(--serif);
+    margin: 0.07em 0.1em 0 0;
+  }
+
+  .story > h2 {
+    font: 400 var(--t-2xl) / 1.1 var(--serif);
+    letter-spacing: -0.01em;
+    margin-top: var(--s-8);
+  }
+
+  .story > figure {
+    margin-block: var(--s-7);
+  }
+
+  .story figcaption {
+    margin-top: var(--s-3);
+  }
+
+  .metre {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 220px);
+    gap: var(--s-5);
+    align-items: center;
+  }
+
+  .metre figcaption {
+    grid-column: 1 / -1;
+  }
+
+  .inputs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1px;
+    margin: 0;
+    background: var(--ink);
+    border: 1px solid var(--ink);
+  }
+
+  .inputs div {
+    background: var(--paper);
+    padding: var(--s-3) var(--s-4);
+  }
+
+  .inputs dt {
+    font-size: var(--t-xs);
+    color: var(--muted);
+  }
+
+  .inputs dd {
+    margin: 2px 0 0;
+    font: 400 var(--t-xl) / 1.1 var(--serif);
+  }
+
+  .arrow {
+    font: 400 var(--t-xl) / 1 var(--sans);
+  }
+
+  .heat-cell {
+    aspect-ratio: 1;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: var(--s-1);
+    color: var(--paper);
+  }
+
+  .heat-value {
+    font: 400 clamp(2.5rem, 5vw, 3.5rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+  }
+
+  .heat-value small {
+    font-size: 0.5em;
+    margin-left: 2px;
+  }
+
+  svg {
+    width: 100%;
+    height: auto;
+  }
+
+  .grid {
+    stroke: var(--line);
+  }
+
+  .tick,
+  .axis {
+    font: 400 13px var(--sans);
+    fill: var(--muted);
+  }
+
+  .axis {
+    fill: var(--ink);
+  }
+
+  /* a paper halo keeps labels readable where they cross the squares */
+  .note {
+    font: 500 14px var(--sans);
+    fill: var(--ink);
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+  }
+
+  .ring {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2;
+  }
+
+  .lead {
+    fill: none;
+    stroke: var(--ink);
+  }
+
+  /* Instrument Serif has no rupee sign */
+  .glyph {
+    font-family: var(--sans);
+    font-size: 0.85em;
+  }
+
+  .note.green {
+    fill: var(--neem);
+  }
+
+  .fit {
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+  }
+
+  .mark {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 2;
+  }
+
+  .pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-5);
+  }
+
+  .pair img {
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+  }
+
+  .pair p {
+    margin-top: var(--s-2);
+  }
+
+  .pair figcaption {
+    grid-column: 1 / -1;
+    margin-top: 0;
+  }
+
+  .band {
+    fill: var(--wash);
+  }
+
+  .base {
+    stroke: var(--ink);
+  }
+
+  .today,
+  .planned {
+    fill: none;
+    stroke-width: 2.25;
+    stroke-linejoin: round;
+  }
+
+  .today {
+    stroke: var(--ink);
+  }
+
+  .planned {
+    stroke: var(--neem);
+  }
+
+  .peak {
+    fill: var(--heat-extreme);
+  }
+
+  .pull {
+    margin: var(--s-7) auto;
+    padding: 0;
+    font: 400 clamp(2rem, 4.4vw, 3rem) / 1.05 var(--serif);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  code {
+    font: 500 0.9em var(--sans);
+    background: var(--wash);
+    padding: 0.05em 0.35em;
+  }
+
+  .cells {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: var(--s-8);
+  }
+
+  .cells i {
+    width: 9px;
+    height: 9px;
+    background: var(--ink);
+  }
+
+  .cells i:nth-child(2) {
+    background: var(--neem);
+  }
+
+  .story > p.close {
+    font: 400 var(--t-xl) / 1.3 var(--serif);
+    text-align: center;
+    text-wrap: balance;
+  }
+
+  .next {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2) var(--s-5);
+    margin-top: var(--s-7);
+  }
+
+  @media (max-width: 720px) {
+    .metre {
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+    }
+    .metre .inputs {
+      width: 100%;
+    }
+    .arrow {
+      transform: rotate(90deg);
+    }
+    .heat-cell {
+      width: min(100%, 220px);
+    }
+    .pair {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .story > p {
+      font-size: 1.0625rem;
+    }
+  }
+</style>
