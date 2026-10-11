@@ -32,6 +32,8 @@ const issue = "https://github.com/riteshroshann/neem/issues/new?title=Partnering
       <a href="#agent">The agent</a>
       <a href="#cloud">The cloud</a>
       <a href="#run">Run it</a>
+      <a href="#api">Files and API</a>
+      <a href="#worlds">Worlds</a>
       <a href="#extend">Extend it</a>
       <a href="#further">How far</a>
       <a href="#partners">NGOs and funders</a>
@@ -181,6 +183,89 @@ uv run neem-api                # the physics API on :8000</code></pre>
           <li><code>recon/</code> phone video to a 3D model and measured heights</li>
           <li><code>infra/</code> Docker, LocalStack and the SAM template</li>
         </ul>
+      </div>
+    </section>
+
+    <section class="block rule" id="api">
+      <h2 class="title">Files and API</h2>
+      <div class="prose">
+        <p>
+          The site needs no server. <code>neem-data publish</code> writes everything it shows as
+          plain files, and each school with a twin gets a folder under <code>/twins/&lt;id&gt;/</code>:
+        </p>
+        <ul class="tree small">
+          <li><code>twin.json</code> the school, its grid, and the yard's heat summary for every hour</li>
+          <li><code>layers.bin.gz</code> the grids, packed: ground height, roofs, crowns, what counts as yard, and radiant temperature and feels-like for every hour</li>
+          <li><code>calibration.json</code> the small per-hour model the instant preview runs on</li>
+          <li><code>child.json</code> the nine-year-old's morning, minute by minute</li>
+          <li><code>plan.json</code> the agent's plan, its steps and SOLWEIG's verdict</li>
+          <li><code>map-1pm*.png</code> the 1 pm heat maps: today, with the plan, and at each modelled age</li>
+        </ul>
+        <p>
+          The physics API, <code>uv run neem-api</code>, serves the same data and runs the
+          verification jobs. Cedar checks every call.
+        </p>
+        <ul class="tree small">
+          <li><code>GET /schools</code>, <code>GET /schools/&lbrace;id&rbrace;</code> the ranking and one school</li>
+          <li><code>GET /schools/&lbrace;id&rbrace;/layers.bin</code>, <code>/calibration</code>, <code>/child</code> a twin's files</li>
+          <li><code>POST /schools/&lbrace;id&rbrace;/designs</code> trees and sails in, a job id out (202)</li>
+          <li><code>GET /jobs/&lbrace;id&rbrace;</code> the job: queued, running, then SOLWEIG's numbers</li>
+          <li><code>POST /schools/&lbrace;id&rbrace;/approve</code>, <code>GET /schools/&lbrace;id&rbrace;/approved</code> a school's own planner signs off a verified plan</li>
+          <li><code>GET /health</code>, <code>GET /whoami</code> liveness, and who Cedar thinks you are</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block rule" id="worlds">
+      <h2 class="title">Worlds you can walk through</h2>
+      <div class="prose">
+        <figure class="docs-film">
+          <video controls muted loop playsinline preload="none" poster="/media/kv-3d.jpg" width="1280" height="800">
+            <source src="/media/kv-3d.webm" type="video/webm" />
+            <source src="/media/kv-3d.mp4" type="video/mp4" />
+          </video>
+          <figcaption class="xs muted">
+            Neem's 3D today: Kendriya Vidyalaya from open data, one column per square metre, the
+            ground coloured by SOLWEIG, rendered with three.js.
+          </figcaption>
+        </figure>
+        <p>
+          Neem's 3D today is honest but blocky: one column per square metre, from open data. A real
+          yard has a water tank, a stage for assembly, a wall with a crack in it and the exact lean
+          of every tree. Two ideas from computer vision close that gap, and they fit together.
+        </p>
+        <p>
+          <b>Gaussian splats.</b> A splat scene is a cloud of millions of tiny, soft, coloured blobs.
+          Each blob is only a few numbers: where it sits, how it is stretched and turned, its colour,
+          and how see-through it is. To draw a frame you sort the blobs by distance and paint them
+          back to front. To build a scene you start from a rough point cloud and nudge every number by
+          gradient descent until the renders match the photos. No meshes and no textures, just blobs
+          that end up looking exactly like the place.
+        </p>
+        <p>
+          <b>The plan for <code>recon/</code>.</b> Walk the empty yard with a phone for 60 to 90
+          seconds. VGGT, a 3D vision model, turns the frames into camera positions and a dense point
+          cloud in one pass. The cloud is levelled, scaled against the mapped buildings and becomes
+          measured heights for SOLWEIG. The same footage then trains a splat, and SOLWEIG's map is
+          painted onto its ground: you walk through your own school and see where the sun will hurt
+          at 1 pm.
+        </p>
+        <p>
+          <b>World Labs</b> is taking this furthest. Their world model,
+          <a href="https://www.worldlabs.ai/blog/marble-world-model">Marble</a>, generates a
+          persistent 3D world from a single image, a text prompt, a video or a rough 3D layout, and
+          exports it as Gaussian splats and meshes. Their renderer,
+          <a href="https://github.com/sparkjsdev/spark">Spark</a>, is open source under MIT and draws
+          splats inside three.js, the engine Neem's 3D already runs on, on WebGL2 phones and headsets;
+          Spark 2.0 streams worlds of over 100 million splats into a browser.
+        </p>
+        <p>
+          Neem would use both, kept strictly apart. <b>Measured:</b> a splat of the real yard from a
+          phone video, drawn with Spark, every number on it still from physics. <b>Imagined:</b> a
+          generated world of the grown grove, seeded from a photo of the yard today, so a principal can
+          stand under year thirty before planting year one, labelled as a picture and never as a
+          result. Neither is built yet; the phone-to-heights pipeline is.
+        </p>
       </div>
     </section>
 
@@ -341,6 +426,21 @@ uv run neem-api                # the physics API on :8000</code></pre>
   .tree code {
     color: var(--ink);
     margin-right: var(--s-2);
+  }
+
+  .docs-film {
+    margin: 0 0 var(--s-6);
+    display: grid;
+    gap: var(--s-3);
+  }
+
+  .docs-film video {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    background: #13100d;
+    box-shadow: 0 0 0 1px var(--line);
   }
 
   @media (max-width: 900px) {

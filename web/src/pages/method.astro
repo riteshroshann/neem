@@ -124,6 +124,24 @@ const { stats } = ranking;
     </section>
 
     <section class="block rule">
+      <h2 class="title">Three dimensions</h2>
+      <div class="prose">
+        <p>
+          The 3D views draw the same grids SOLWEIG uses, one column per square metre: roofs from
+          Overture and Copernicus heights, crowns from the canopy map, the ground coloured by the 1 pm
+          map, rendered with three.js. Next is measured 3D. <code>recon/</code> turns a 60 to 90
+          second phone video of the yard into camera positions and a dense point cloud with VGGT, then
+          into heights on the 1 m grid. The same footage can train a Gaussian splat, rendered in the
+          browser with <a href="https://github.com/sparkjsdev/spark">Spark</a>, World Labs'
+          open-source splat renderer for three.js. Their
+          <a href="https://www.worldlabs.ai/blog/marble-world-model">Marble</a> world model points
+          further still: whole worlds generated from a single photo. Anything generated stays a
+          picture; the numbers stay physics.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule">
       <h2 class="title">Built on</h2>
       <div class="prose">
         <p>
@@ -157,6 +175,11 @@ const { stats } = ranking;
     grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
     gap: var(--s-8);
     padding-block: var(--s-7) var(--s-8);
+  }
+
+  code {
+    font: 500 0.95em var(--sans);
+    color: var(--ink);
   }
 
   @media (max-width: 900px) {
