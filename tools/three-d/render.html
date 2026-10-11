@@ -4,8 +4,10 @@
     <meta charset="utf-8" />
     <meta name="author" content="Ritesh Roshan" />
     <title>Neem yard film</title>
-    <!-- The 12 s loop of one school's heat twin in 3D. tools/three-d/render.py injects window.KV
-         and calls renderAt(t) once per frame; nothing here runs on a clock. -->
+    <!-- One school's heat twin in 3D: the 12 s loop of the planting, or, when window.KV carries
+         future stages, the same planting from seed to thirty years. tools/three-d/render.py
+         injects window.KV and draws one frame per call, renderAt(t) or drawFuture(state);
+         nothing here runs on a clock. -->
     <style>
       html,
       body {
@@ -60,6 +62,25 @@
       const DOME = { sky: "#e9effc", ground: "#5c5146", share: 0.26 };
       const EXPOSURE = 0.95;
 
+      // The future: the same planting at each modelled age. render.py hands over each frame's
+      // tree size, ground and camera; the page only draws them. New trees stand apart from the
+      // tile as crowns on trunks, so the ground under them keeps its SOLWEIG colour.
+      const TRUNK = 0.25; // shadow.TRUNK_RATIO: SOLWEIG lets light under this share of a tree
+      // neem greens, from under the rim to the top of a crown
+      const GREENS = ["#1d4530", "#2c6142", "#3f7d4f", "#68a05c", "#9cc57e"];
+      const BOUNCE = 0.45; // sunlit ground lighting leaves from below, as a share of GREENS[0]
+      const BARK = "#4a3c31";
+      const BOLE = 0.0052; // trunk radius per height^1.5: 3 cm across at 2 m, 60 cm at 15 m
+      const SINK = 0.3; // trunks start below their cell, so none floats where the tile slopes
+      const SHAPES = 3; // crown shapes, handed round the trees
+      const MASS_M = 3; // today's canopy is shaded against its tallest point within this reach
+      const SOFTEN = 1; // binomial passes over today's canopy heights
+      const STILL = { elevation: 40, bearing: 155, margin: 0.06 };
+      const RIDE = {
+        from: { elevation: 55, bearing: 125, margin: 0.06, room: 1.2 },
+        to: { elevation: 25, bearing: 165, margin: 0.03, room: 0.9 },
+      };
+
       const KV = window.KV;
       const { width, height, scale } = KV.frame;
       const { rows, cols, pixel_size: px, x0, y0 } = KV.summary.grid;
@@ -71,6 +92,7 @@
       };
       const LIN = Float32Array.from({ length: 256 }, (_, v) => linear(v));
       const lin3 = (rgb) => rgb.map((v) => LIN[v]);
+      const hex3 = (hex) => lin3([1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16)));
       const smoother = (u) => {
         const x = Math.min(1, Math.max(0, u));
         return x * x * x * (x * (6 * x - 15) + 10);
@@ -200,12 +222,15 @@
         );
       }
 
-      function place(camera, phi, distance, target) {
-        const p = compass(ELEVATION, phi).multiplyScalar(distance);
+      function aim(camera, elevation, phi, distance, target) {
+        const p = compass(elevation, phi).multiplyScalar(distance);
         camera.position.copy(target).add(p);
         camera.lookAt(target);
         camera.updateMatrixWorld();
       }
+
+      const place = (camera, phi, distance, target) =>
+        aim(camera, ELEVATION, phi, distance, target);
 
       /** The orbit radius that keeps every point in frame all the way round, and the vertical
        * shift that centres them. */
@@ -239,11 +264,10 @@
         return { distance: far, shift: (e.hi + e.lo) / 2 };
       }
 
-      async function build() {
-        const { dsm, dem, cdsm, zones } = await readLayers(KV.layers);
-        const today = await overPaper(KV.maps.today);
-        const plan = await overPaper(KV.maps.plan);
-
+      /** The tile as Twin3D lays it out, one vertex per cell; callers fill heights and colours. */
+      async function terrain() {
+        const layers = await readLayers(KV.layers);
+        const { dsm, dem, zones } = layers;
         let base = Number.POSITIVE_INFINITY;
         for (let i = 0; i < n; i++) base = Math.min(base, dem[i]);
         const roof = new Uint8Array(n);
@@ -264,8 +288,13 @@
           new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
         );
         mesh.frustumCulled = false;
+        const pos = geometry.getAttribute("position");
+        const col = geometry.getAttribute("color");
+        return { ...layers, base, roof, mesh, pos, col };
+      }
 
-        // the yard's centre, which the camera turns round and the planting ripples out from
+      /** The yard's centre, which the camera turns round and the planting ripples out from. */
+      function yardCentre(zones, dem, base) {
         let yr = 0;
         let yc = 0;
         let yn = 0;
@@ -277,11 +306,33 @@
           yh += dem[i] - base;
           yn++;
         }
-        const target = new THREE.Vector3(
+        return new THREE.Vector3(
           (yc / yn - (cols - 1) / 2) * px,
           yh / yn,
           (yr / yn - (rows - 1) / 2) * px,
         );
+      }
+
+      function makeRenderer() {
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(scale);
+        renderer.setSize(width, height);
+        renderer.setClearColor(NIGHT);
+        document.body.appendChild(renderer.domElement);
+        return renderer;
+      }
+
+      function glName(renderer) {
+        const gl = renderer.getContext();
+        const info = gl.getExtension("WEBGL_debug_renderer_info");
+        return gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER);
+      }
+
+      async function build() {
+        const { dsm, dem, cdsm, zones, base, roof, mesh, pos, col } = await terrain();
+        const today = await overPaper(KV.maps.today);
+        const plan = await overPaper(KV.maps.plan);
+        const target = yardCentre(zones, dem, base);
 
         const trees = KV.trees.map((t) => ({ ...reach(t, zones), x: worldX(t.x), z: worldZ(t.y) }));
         const dist = trees.map((t) => Math.hypot(t.x - target.x, t.z - target.z));
@@ -308,8 +359,6 @@
           }
         }
 
-        const pos = geometry.getAttribute("position");
-        const col = geometry.getAttribute("color");
         const planted = new Float32Array(n);
         const crown = lin3(CROWN);
         const grey = lin3(ROOF);
@@ -381,11 +430,7 @@
         const camera = new THREE.PerspectiveCamera(FOV, width / height, 10, 10000);
         camera.setViewOffset(width, height, 0, (-framing.shift * height) / 2, width, height);
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-        renderer.setPixelRatio(scale);
-        renderer.setSize(width, height);
-        renderer.setClearColor(NIGHT);
-        document.body.appendChild(renderer.domElement);
+        const renderer = makeRenderer();
 
         window.renderAt = (t) => {
           const time = ((t % LOOP) + LOOP) % LOOP;
@@ -394,16 +439,390 @@
           renderer.render(scene, camera);
         };
 
-        const gl = renderer.getContext();
-        const info = gl.getExtension("WEBGL_debug_renderer_info");
-        return {
-          gl: gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER),
-          distance: framing.distance,
-          trees: trees.length,
+        return { gl: glName(renderer), distance: framing.distance, trees: trees.length };
+      }
+
+      /** Deterministic noise, so every run grows the same crowns. */
+      function mulberry32(seed) {
+        let a = seed >>> 0;
+        return () => {
+          a = (a + 0x6d2b79f5) >>> 0;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
         };
       }
 
-      window.ready = build();
+      // Height, as a share of a crown, at which each of the GREENS is reached. Today's canopy
+      // stops short of the fourth, so the new planting reads apart from it.
+      const CROWN_STOPS = [0.25, 0.42, 0.62, 0.82, 0.98];
+      const CANOPY_STOPS = [0.3, 0.6, 0.85, 1.25];
+      const GREENS_LIN = GREENS.map(hex3);
+
+      /** The neem green at height y on a ramp of stops, as linear rgb. */
+      function green(y, stops) {
+        let g = 0;
+        while (g < stops.length - 1 && y > stops[g]) g++;
+        if (g === 0) return GREENS_LIN[0];
+        const u = smoother((y - stops[g - 1]) / (stops[g] - stops[g - 1]));
+        const [a, b] = [GREENS_LIN[g - 1], GREENS_LIN[g]];
+        return [0, 1, 2].map((c) => a[c] + u * (b[c] - a[c]));
+      }
+
+      /** Points spread over the sphere's upper part, which the camera sees, each with a size. */
+      function scatter(rand, count, spread) {
+        return Array.from({ length: count }, () => {
+          const y = 1 - 1.45 * rand();
+          const a = 2 * Math.PI * rand();
+          const s = Math.sqrt(1 - y * y);
+          return { at: new THREE.Vector3(s * Math.cos(a), y, s * Math.sin(a)), spread };
+        });
+      }
+
+      /** How fully a direction falls inside any of the bumps, from 0 to 1. */
+      function cover(dir, bumps) {
+        let miss = 1;
+        for (const b of bumps) miss *= 1 - Math.exp((dir.dot(b.at) - 1) / b.spread);
+        return 1 - miss;
+      }
+
+      /** One neem crown, 1 across its widest and 1 from its base to its top: a full dome over a
+       * flatter underside, made of leaf masses and smaller tufts. Greens run from the darkest
+       * under the rim to the lightest on top; hollows between the masses are darker still. */
+      function crownGeometry(seed) {
+        const AROUND = 112;
+        const UP = 64;
+        const EQUATOR = 0.36; // where the crown is widest, as a share of its depth
+        const DOME_P = 2.4; // superellipse exponents: a fuller dome, a rounder underside
+        const BELLY_P = 2.0;
+        const DENT = 0.13; // how far the hollows between leaf masses sit inside them
+        const TUFT = 0.045;
+        const rand = mulberry32(seed);
+        const masses = scatter(rand, 24, 0.05);
+        const tufts = scatter(rand, 150, 0.009);
+        const position = [];
+        const leaf = [];
+        const dir = new THREE.Vector3();
+        const vertex = (theta, phi) => {
+          const c = -Math.cos(theta);
+          const s = Math.sin(theta);
+          dir.set(s * Math.cos(phi), c, s * Math.sin(phi));
+          const mass = cover(dir, masses);
+          const tuft = cover(dir, tufts);
+          const p = c < 0 ? BELLY_P : DOME_P;
+          const rho = s ** (2 / p);
+          const lift = Math.abs(c) ** (2 / p) * (c < 0 ? -EQUATOR : 1 - EQUATOR);
+          const m = 1 - DENT * (1 - mass) - TUFT * (1 - tuft);
+          position.push(m * rho * Math.cos(phi), EQUATOR + m * lift, m * rho * Math.sin(phi));
+          leaf.push((0.68 + 0.32 * mass) * (0.9 + 0.1 * tuft) * (0.95 + 0.1 * rand()));
+        };
+        vertex(0, 0);
+        for (let j = 1; j < UP; j++) {
+          for (let i = 0; i < AROUND; i++) vertex((Math.PI * j) / UP, (2 * Math.PI * i) / AROUND);
+        }
+        vertex(Math.PI, 0);
+
+        const index = [];
+        const ring = (j, i) => 1 + (j - 1) * AROUND + (i % AROUND);
+        const top = 1 + (UP - 1) * AROUND;
+        for (let i = 0; i < AROUND; i++) {
+          index.push(0, ring(1, i), ring(1, i + 1));
+          for (let j = 1; j < UP - 1; j++) {
+            const [a, b, c, d] = [ring(j, i), ring(j, i + 1), ring(j + 1, i), ring(j + 1, i + 1)];
+            index.push(a, c, b, b, c, d);
+          }
+          index.push(ring(UP - 1, i), top, ring(UP - 1, i + 1));
+        }
+
+        // exactly 1 across and 1 deep, so the instance scale is the crown's true size
+        let r = 0;
+        let lo = Number.POSITIVE_INFINITY;
+        let hi = Number.NEGATIVE_INFINITY;
+        for (let k = 0; k < position.length; k += 3) {
+          r = Math.max(r, Math.hypot(position[k], position[k + 2]));
+          lo = Math.min(lo, position[k + 1]);
+          hi = Math.max(hi, position[k + 1]);
+        }
+        const colour = [];
+        for (let k = 0; k < position.length; k += 3) {
+          position[k] /= r;
+          position[k + 2] /= r;
+          const y = (position[k + 1] - lo) / (hi - lo);
+          position[k + 1] = y;
+          const g = green(y, CROWN_STOPS);
+          for (let c = 0; c < 3; c++) colour.push(leaf[k / 3] * g[c]);
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(position, 3));
+        geometry.setAttribute("color", new THREE.Float32BufferAttribute(colour, 3));
+        geometry.setIndex(index);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      /** Canopy heights after passes of a 3 x 3 binomial, kept to the cells that have canopy:
+       * edges round off, but no crown spreads past its footprint. */
+      function soften(cdsm, roof, passes) {
+        let h = Float32Array.from(cdsm, (v, i) => (roof[i] ? 0 : v));
+        for (let pass = 0; pass < passes; pass++) {
+          const next = new Float32Array(n);
+          for (let i = 0; i < n; i++) {
+            if (h[i] <= 0) continue;
+            const [r, c] = [Math.floor(i / cols), i % cols];
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const [rr, cc] = [r + dr, c + dc];
+                if (rr < 0 || cc < 0 || rr >= rows || cc >= cols) continue;
+                next[i] += (h[rr * cols + cc] * (2 - Math.abs(dr)) * (2 - Math.abs(dc))) / 16;
+              }
+            }
+          }
+          h = next;
+        }
+        return h;
+      }
+
+      /** Today's canopy taken out of the flat tile into a smooth mesh of its own, so it reads as
+       * foliage beside the new crowns. It shares the tile's vertices, already raised to the
+       * softened canopy; each mass is shaded from its foot to its tallest point nearby. */
+      function todaysCanopy(tile, soft, roof, bounce) {
+        const leafy = (i) => soft[i] > 0;
+        const own = [];
+        const rest = [];
+        for (let r = 0; r + 1 < rows; r++) {
+          for (let c = 0; c + 1 < cols; c++) {
+            const a = r * cols + c;
+            const b = a + cols;
+            for (const tri of [
+              [a, b, a + 1],
+              [b, b + 1, a + 1],
+            ]) {
+              (tri.some(leafy) ? own : rest).push(...tri);
+            }
+          }
+        }
+        tile.setIndex(rest);
+
+        const reachCells = Math.round(MASS_M / px);
+        const grey = lin3(ROOF);
+        const rand = mulberry32(7);
+        const colour = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) {
+          let rgb = GREENS_LIN[0]; // where the foliage meets the ground
+          if (roof[i]) rgb = grey;
+          else if (leafy(i)) {
+            const [r, c] = [Math.floor(i / cols), i % cols];
+            const [r0, r1] = [Math.max(0, r - reachCells), Math.min(rows - 1, r + reachCells)];
+            const [c0, c1] = [Math.max(0, c - reachCells), Math.min(cols - 1, c + reachCells)];
+            let top = 0;
+            for (let rr = r0; rr <= r1; rr++) {
+              for (let cc = c0; cc <= c1; cc++) top = Math.max(top, soft[rr * cols + cc]);
+            }
+            const speckle = 0.9 + 0.16 * rand();
+            rgb = green(soft[i] / top, CANOPY_STOPS).map((v) => v * speckle);
+          }
+          colour.set(rgb, i * 3);
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", tile.getAttribute("position"));
+        geometry.setAttribute("color", new THREE.BufferAttribute(colour, 3));
+        geometry.setIndex(own);
+        geometry.computeVertexNormals();
+        const mesh = new THREE.Mesh(
+          geometry,
+          new THREE.MeshLambertMaterial({ vertexColors: true, emissive: bounce }),
+        );
+        mesh.frustumCulled = false;
+        return mesh;
+      }
+
+      async function buildFuture() {
+        const { dsm, dem, cdsm, zones, base, roof, mesh, pos, col } = await terrain();
+        const stages = KV.future.stages;
+        const maps = await Promise.all(stages.map((s) => overPaper(s.map)));
+        const target = yardCentre(zones, dem, base);
+
+        // Heights once: roofs and today's canopy, softened so the 1 m raster shows as crowns
+        // rather than stairs. The new trees are meshes of their own.
+        const soft = soften(cdsm, roof, SOFTEN);
+        const p = pos.array;
+        for (let i = 0; i < n; i++) {
+          p[i * 3 + 1] = Math.max(dsm[i] - base, dem[i] - base + soft[i]);
+        }
+        pos.needsUpdate = true;
+        const edge = skirt(p, -SKIRT_M);
+        const bounce = new THREE.Color().setRGB(...GREENS_LIN[0].map((v) => v * BOUNCE));
+        const canopy = todaysCanopy(mesh.geometry, soft, roof, bounce);
+
+        const grey = lin3(ROOF);
+        let painted = "";
+        /** Ground from stage a's map, faded by w toward stage b's: nothing but SOLWEIG colour. */
+        function paint(a, b, w) {
+          if (painted === `${a} ${b} ${w}`) return;
+          painted = `${a} ${b} ${w}`;
+          const [ma, mb] = [maps[a], maps[b]];
+          const c = col.array;
+          for (let i = 0; i < n; i++) {
+            for (let k = 0; k < 3; k++) {
+              const j = i * 3 + k;
+              c[j] = roof[i] ? grey[k] : ma[j] + w * (mb[j] - ma[j]);
+            }
+          }
+          col.needsUpdate = true;
+        }
+
+        const rand = mulberry32(25);
+        const trees = KV.trees.map((t) => {
+          const r = Math.floor((y0 - t.y) / px);
+          const c = Math.floor((t.x - x0) / px);
+          return {
+            x: worldX(t.x),
+            z: worldZ(t.y),
+            ground: dem[r * cols + c] - base,
+            yaw: 2 * Math.PI * rand(),
+            shape: Math.floor(rand() * SHAPES),
+            tint: 0.9 + 0.16 * rand(),
+          };
+        });
+        const leaves = new THREE.MeshLambertMaterial({ vertexColors: true, emissive: bounce });
+        const crowns = Array.from({ length: SHAPES }, (_, s) => {
+          const mine = trees.filter((t) => t.shape === s);
+          const m = new THREE.InstancedMesh(crownGeometry(101 + s), leaves, mine.length);
+          mine.forEach((t, k) => m.setColorAt(k, new THREE.Color(t.tint, t.tint, t.tint)));
+          m.frustumCulled = false;
+          return { mesh: m, trees: mine };
+        });
+        const stem = new THREE.CylinderGeometry(0.7, 1, 1, 12, 1, true).translate(0, 0.5, 0);
+        const trunks = new THREE.InstancedMesh(
+          stem,
+          new THREE.MeshLambertMaterial({ color: BARK }),
+          trees.length,
+        );
+        trunks.frustumCulled = false;
+
+        const UP = new THREE.Vector3(0, 1, 0);
+        const m4 = new THREE.Matrix4();
+        const q = new THREE.Quaternion();
+        const at = new THREE.Vector3();
+        const size = new THREE.Vector3();
+        /** Every new tree at one size, its crown from SOLWEIG's trunk zone to its top. */
+        function grow(h, radius) {
+          const on = h > 0;
+          trunks.visible = on;
+          for (const c of crowns) c.mesh.visible = on;
+          if (!on) return;
+          const lift = TRUNK * h;
+          const depth = h - lift;
+          const bole = BOLE * h ** 1.5;
+          for (const c of crowns) {
+            c.trees.forEach((t, k) => {
+              q.setFromAxisAngle(UP, t.yaw);
+              m4.compose(at.set(t.x, t.ground + lift, t.z), q, size.set(radius, depth, radius));
+              c.mesh.setMatrixAt(k, m4);
+            });
+            c.mesh.instanceMatrix.needsUpdate = true;
+          }
+          q.identity();
+          trees.forEach((t, k) => {
+            m4.compose(
+              at.set(t.x, t.ground - SINK, t.z),
+              q,
+              size.set(bole, SINK + lift + 0.4 * depth, bole),
+            );
+            trunks.setMatrixAt(k, m4);
+          });
+          trunks.instanceMatrix.needsUpdate = true;
+        }
+
+        // Frame the school with the grown planting standing in it: every school cell at its
+        // ground and its top, and each tree's crown at the last stage as a cylinder.
+        const last = stages[stages.length - 1];
+        const school = [];
+        for (let i = 0; i < n; i++) {
+          if (zones[i] !== ZONE_GROUND && zones[i] !== ZONE_BUILDING) continue;
+          const x = p[i * 3];
+          const z = p[i * 3 + 2];
+          school.push(x, dem[i] - base, z, x, p[i * 3 + 1], z);
+        }
+        const grove = [];
+        for (const t of trees) {
+          for (let k = 0; k < 16; k++) {
+            const a = (2 * Math.PI * k) / 16;
+            const [x, z] = [t.x + last.radius * Math.cos(a), t.z + last.radius * Math.sin(a)];
+            grove.push(x, t.ground + TRUNK * last.height, z, x, t.ground + last.height, z);
+          }
+        }
+        const all = Float32Array.from([...school, ...grove]);
+        const views = {
+          still: frameView(all, target, STILL),
+          from: frameView(all, target, RIDE.from),
+          to: frameView(all, target, RIDE.to),
+        };
+
+        const scene = new THREE.Scene();
+        scene.add(mesh, canopy, edge, trunks, ...crowns.map((c) => c.mesh));
+        addLights(scene);
+        const camera = new THREE.PerspectiveCamera(FOV, width / height, 10, 10000);
+        const renderer = makeRenderer();
+
+        /** The ride's camera at progress c: angles straight, distance in proportion. */
+        function ride(c) {
+          const { from, to } = views;
+          const mix = (a, b) => a + c * (b - a);
+          return {
+            elevation: mix(from.elevation, to.elevation),
+            bearing: mix(from.bearing, to.bearing),
+            distance: Math.exp(mix(Math.log(from.distance), Math.log(to.distance))),
+            sx: mix(from.sx, to.sx),
+            sy: mix(from.sy, to.sy),
+          };
+        }
+
+        window.drawFuture = ({ height: h, radius, ground, view }) => {
+          paint(...ground);
+          grow(h, radius);
+          const v = view === "still" ? views.still : ride(view);
+          aim(camera, v.elevation, v.bearing, v.distance, target);
+          const [dx, dy] = [(v.sx * width) / 2, (-v.sy * height) / 2];
+          camera.setViewOffset(width, height, dx, dy, width, height);
+          renderer.render(scene, camera);
+        };
+
+        return { gl: glName(renderer), trees: trees.length, views };
+      }
+
+      /** The distance at which the points fill one fixed view, less a margin, and the lens
+       * shift that centres them. room > 1 stands the camera further back. */
+      function frameView(points, target, { elevation, bearing, margin, room = 1 }) {
+        const camera = new THREE.PerspectiveCamera(FOV, width / height, 1, 10000);
+        const v = new THREE.Vector3();
+        const extent = (distance) => {
+          aim(camera, elevation, bearing, distance, target);
+          let [xl, xh, yl, yh] = [Infinity, -Infinity, Infinity, -Infinity];
+          for (let k = 0; k < points.length; k += 3) {
+            v.set(points[k], points[k + 1], points[k + 2]).project(camera);
+            xl = Math.min(xl, v.x);
+            xh = Math.max(xh, v.x);
+            yl = Math.min(yl, v.y);
+            yh = Math.max(yh, v.y);
+          }
+          return { xl, xh, yl, yh };
+        };
+        let near = 50;
+        let far = 5000;
+        for (let it = 0; it < 30; it++) {
+          const mid = (near + far) / 2;
+          const e = extent(mid);
+          if ((e.xh - e.xl) / 2 <= 1 - margin && (e.yh - e.yl) / 2 <= 1 - margin) far = mid;
+          else near = mid;
+        }
+        const distance = far * room;
+        const e = extent(distance);
+        return { elevation, bearing, distance, sx: (e.xh + e.xl) / 2, sy: (e.yh + e.yl) / 2 };
+      }
+
+      window.ready = KV.future ? buildFuture() : build();
     </script>
   </body>
 </html>
