@@ -20,6 +20,8 @@ On Monday 27 April 2026, Delhi's hottest school day before the summer break, we 
 
 Neem's planner proposed 85 neems there for ₹2,97,500. SOLWEIG then verified the change: 1 pm yard heat drops from **46.6 to 44.8 °C**, and the child's peak rise falls to 0.82 °C.
 
+Then it grows the plan. The same 85 trees at 1, 5, 10, 20 and 30 years, each a full SOLWEIG and child-twin run on the same heatwave day, so the trees are the only change. By year five the yard leaves extreme heat stress. By year thirty the crowns cover **5,861 m²**, and the ground under them feels like **42.1 °C** where the same squares are 47.2 °C today. The home page tells it as a ride through thirty years. How big a neem grows by each age is our assumption, inside published ranges.
+
 ![The planner with a verified plan](docs/img/planner.png)
 
 ## How it works
