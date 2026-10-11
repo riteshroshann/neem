@@ -25,20 +25,14 @@ export const rupees = (v: number) => `₹${inr.format(Math.round(v))}`;
 /** Whole lakh read the way people say them: "₹3 lakh". */
 export const lakh = (v: number) => (v % 100_000 === 0 ? `₹${v / 100_000}${NBSP}lakh` : rupees(v));
 
-const date = (day: string, weekday: boolean) =>
+/** "27 April 2026" */
+export const longDate = (day: string) =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
-    ...(weekday ? { weekday: "long" as const } : {}),
     day: "numeric",
     month: "long",
     year: "numeric",
     timeZone: "UTC",
   });
-
-/** "27 April 2026" */
-export const longDate = (day: string) => date(day, false);
-
-/** "Monday 27 April 2026" */
-export const fullDate = (day: string) => date(day, true).replace(",", "");
 
 /** OpenStreetMap names as a person would write them: title case if all lower, small "of". */
 export function schoolName(raw: string): string {

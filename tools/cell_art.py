@@ -29,6 +29,8 @@ GAP = 0.2  # share of a cell left as gap
 # neem greens, darkest first; bark; blossom
 LEAF = ["#1d4530", "#2c6142", "#3f7d4f", "#68a05c", "#9cc57e"]
 BARK = "#5b4030"
+BARK_SHADE = "#3d2a1f"  # the underside of a limb
+BARK_LIT = "#7d5d44"  # its top edge, lit from above
 BLOSSOM = ["#f7f1de", "#ece0b5"]
 # the UTCI heat ramp, one colour per band
 HEAT = [hex_.lower() for _, hex_ in STOPS]
@@ -114,6 +116,12 @@ def curve(points: list[tuple[float, float]], n: int = 48) -> LineString:
     return LineString(xy)
 
 
+def path(*segments: list[tuple[float, float]], n: int = 48) -> LineString:
+    """Bezier segments joined end to end into one polyline."""
+    parts = [np.asarray(curve(seg, n).coords) for seg in segments]
+    return LineString(np.vstack([parts[0], *(p[1:] for p in parts[1:])]))
+
+
 def tapered(line: LineString, w0: float, w1: float, steps: int = 24) -> BaseGeometry:
     """A stroke that thins from w0 to w1 along the line."""
     parts = []
@@ -187,22 +195,30 @@ def blossom(art: Art, x: float, y: float, rng: np.random.Generator) -> None:
 
 
 def branch(seed: int, cols: int = 84, rows: int = 52) -> Art:
-    """A neem twig reaching in from the corner: leaves bunch toward its tip, as neem's do."""
+    """A neem limb coming down from behind the masthead into the corner.
+
+    It leaves the top edge in a curve, so it reads as part of a tree beyond the frame, sags under
+    its leaves, and lifts at the tip, where the new growth is. The leaves bunch toward the end, as
+    neem's do."""
     rng = np.random.default_rng(seed)
     art = Art(cols, rows)
-    twig = curve([(-8, 2), (20, 0), (46, 8), (cols - 10, 6)])
-    spur = curve([(30, 3.2), (36, 8), (40, 15)])
+    twig = path(
+        [(1.5, -9), (3.5, -1), (9, 3.5), (20, 5)],
+        [(20, 5), (36, 6.6), (54, 10.5), (cols - 16, 8)],
+    )
+    fork = twig.interpolate(0.42, normalized=True)
+    spur = curve([(fork.x, fork.y), (fork.x + 5, fork.y + 4), (fork.x + 8, fork.y + 11)])
+    tip = twig.interpolate(1.0, normalized=True)
     back, front = [], []
-    # (position on the twig, angle, length, depth layer)
+    # (position on the twig, angle, length, depth layer); none on the stretch hidden by the masthead
     sprays = [
-        (0.16, 70, 26, 0),
-        (0.3, 104, 30, 1),
-        (0.42, 62, 34, 0),
-        (0.55, 88, 36, 1),
-        (0.66, 118, 28, 0),
-        (0.76, 72, 33, 1),
-        (0.86, 100, 30, 1),
-        (0.95, 40, 24, 0),
+        (0.22, 72, 25, 0),
+        (0.33, 104, 29, 1),
+        (0.45, 64, 32, 0),
+        (0.56, 90, 34, 1),
+        (0.66, 116, 27, 0),
+        (0.76, 74, 31, 1),
+        (0.86, 100, 28, 1),
     ]
     for t, angle, length, layer in sprays:
         p = twig.interpolate(t, normalized=True)
@@ -210,6 +226,10 @@ def branch(seed: int, cols: int = 84, rows: int = 52) -> Art:
         (front if layer else back).append(leaf)
     end = spur.interpolate(1.0, normalized=True)
     front.append(compound_leaf((end.x, end.y), 84, 22, 3, rng))
+    # the flush at the tip: young leaves held up and forward, lighter than the old ones
+    young = [
+        compound_leaf((tip.x, tip.y), a, n, 3, rng) for a, n in ((-14, 10), (24, 11), (60, 14))
+    ]
     for stem, lit, shade in back:
         art.fill(unary_union(shade), LEAF[0])
         art.fill(unary_union(lit), LEAF[1])
@@ -221,8 +241,17 @@ def branch(seed: int, cols: int = 84, rows: int = 52) -> Art:
     # the brightest leaflets: the tips of the front sprays
     for _, lit, _ in front[1::2]:
         art.fill(unary_union(lit[-3:]), LEAF[4])
-    art.fill(unary_union([tapered(twig, 3.0, 1.2), tapered(spur, 1.4, 0.8)]), BARK, 0.3)
-    for t in (0.24, 0.5, 0.72, 0.9):
+    for stem, lit, shade in young:
+        art.fill(unary_union(shade), LEAF[3])
+        art.fill(unary_union(lit), LEAF[4])
+        art.fill(stem, LEAF[2], 0.3)
+    # bark thick at the base and thin at the tip, shaded underneath and lit along the top
+    bark = unary_union([tapered(twig, 4.2, 1.0, steps=40), tapered(spur, 1.5, 0.8)])
+    art.fill(bark, BARK, 0.3)
+    art.fill(bark.difference(translate(bark, 0, -0.9)), BARK_SHADE, 0.3)
+    top = bark.difference(translate(bark, 0, 0.9)).intersection(box(-2, -10, cols * 0.45, rows))
+    art.fill(top, BARK_LIT, 0.3)
+    for t in (0.3, 0.52, 0.72, 0.9):
         p = twig.interpolate(t, normalized=True)
         blossom(art, p.x, p.y + 1, rng)
     return art

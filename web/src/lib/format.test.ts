@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { delta, fullDate, lakh, longDate, rise, rupees, schoolName, temp } from "./format";
+import { delta, lakh, longDate, rise, rupees, schoolName, temp } from "./format";
 
 const NB = " ";
 
@@ -19,7 +19,6 @@ test("rupees read the Indian way", () => {
 
 test("dates", () => {
   expect(longDate("2026-04-27")).toBe("27 April 2026");
-  expect(fullDate("2026-04-27")).toBe("Monday 27 April 2026");
 });
 
 test("school names", () => {

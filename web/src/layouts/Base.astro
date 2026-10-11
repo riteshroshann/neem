@@ -1,6 +1,4 @@
 ---
-import showcase from "../data/showcase.json";
-import { fullDate } from "../lib/format";
 import "../styles/global.css";
 
 interface Props {
@@ -45,16 +43,13 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     <div class="guides" aria-hidden="true"></div>
     <header class="masthead night">
       <div class="wrap bar">
-        <p class="brand">
-          <a class="wordmark" href="/" aria-label="Neem, home">Neem</a>
-          <span class="credit">Created by <a href="https://github.com/riteshroshann">Ritesh&nbsp;Roshan</a></span>
-        </p>
+        <a class="wordmark" href="/" aria-label="Neem, home">Neem</a>
         <nav aria-label="Primary">
           <a href="/#schoolyards">Schoolyards</a>
           <a href="/story">Story</a>
           <a href="/method">Method</a>
         </nav>
-        <p class="dateline xs num">Delhi · {fullDate(showcase.day)}</p>
+        <p class="credit">Created by <a href="https://github.com/riteshroshann">Ritesh&nbsp;Roshan</a></p>
       </div>
     </header>
     <div class="canopy" aria-hidden="true">
@@ -126,14 +121,8 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     border-bottom: 1px solid var(--line);
   }
 
-  .brand {
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-3);
-    margin: 0;
-  }
-
   .credit {
+    margin: 0;
     font-size: var(--t-xs);
     color: var(--muted);
     white-space: nowrap;
@@ -147,10 +136,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
 
   .credit a:hover {
     text-decoration: underline;
-  }
-
-  .dateline {
-    color: var(--muted);
   }
 
   /* neem branches hanging into the top corners; the first section leaves them room */
@@ -167,14 +152,16 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     z-index: 1;
   }
 
+  /* each limb sways from where it leaves the masthead, so its base never lifts off that edge */
   .canopy img {
     width: clamp(150px, 25vw, 380px);
     height: auto;
-    transform-origin: top center;
+    transform-origin: 5% 0;
     animation: sway 9s ease-in-out infinite alternate;
   }
 
   .canopy img + img {
+    transform-origin: 95% 0;
     animation-delay: -4.5s;
   }
 
@@ -252,18 +239,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     max-width: var(--measure);
   }
 
-  @media (max-width: 1100px) {
-    .dateline {
-      display: none;
-    }
-    .bar {
-      grid-template-columns: auto 1fr;
-    }
-    nav {
-      justify-content: flex-end;
-    }
-  }
-
   /* phones: the header scrolls away, and the credit gets its own line under the links */
   @media (max-width: 560px) {
     .masthead {
@@ -276,9 +251,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
         "credit credit";
       row-gap: 0;
       padding-block: var(--s-2) var(--s-3);
-    }
-    .brand {
-      display: contents;
     }
     .wordmark {
       grid-area: word;
