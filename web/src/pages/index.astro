@@ -57,9 +57,8 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
 <Base
   title="Neem"
   description={`Neem maps how hot ${stats.schools} Delhi schoolyards feel to a child on a heatwave day, and lets planners test trees and shade, square metre by square metre, before they plant.`}
-  night="end"
+  night="page"
 >
-  <div class="night">
   <section class="hero wrap page-head">
     <div class="hero-copy">
       <p class="kicker">{stats.schools} Delhi schoolyards, modelled for heat</p>
@@ -84,7 +83,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     </div>
     <Globe />
   </section>
-  </div>
+
 
   <section class="wrap figures rule">
     <div>
@@ -169,7 +168,6 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     </div>
   </section>
 
-  <div class="night">
   <section class="wrap section twins rule" id="twins">
     <h2 class="title">Open a heat twin</h2>
     <p class="muted twins-intro">
@@ -248,7 +246,6 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     <p class="small muted" id="empty" hidden>No school matches that search.</p>
     <button type="button" class="button quiet more" id="more">Show the hottest 100</button>
   </section>
-  </div>
 
   <script>
     const q = document.getElementById("q") as HTMLInputElement;
