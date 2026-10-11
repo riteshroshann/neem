@@ -58,7 +58,13 @@ A tree planted today is a promise about a yard someone else's child will stand i
 
 The first year does nothing. The saplings are 2 m tall in their brick guards and the yard still feels like 46.6 °C. By year five the shade has arrived: the yard drops out of extreme heat stress to 44.8 °C, and under the crowns 1 pm feels like 42.7 °C where the same ground is 47.4 °C today. By year thirty the crowns cover 5,861 m², and the ground beneath them feels like 42.1 °C where it is 47.2 °C now.
 
-The home page tells it as a ride you scroll through, the yard growing in 3D beside the numbers, and it ends on one line. Every year a new nine-year-old walks into that yard on the same hot day. Only the trees get older.
+The home page tells it as a ride you scroll through, the yard growing in 3D beside the numbers. Every year a new nine-year-old walks into that yard on the same hot day. Only the trees get older.
+
+## Why schools first
+
+Children feel the heat first and longest, so they come first. But there's a second reason. A schoolyard is open ground in every neighbourhood, with a gate that opens every morning, and the nine-year-olds who water these saplings will be the adults who plant the streets, the pavements and the parks. In a few years every planted yard is a grove, and the groves are where a city's shade begins.
+
+Schools are the first ring. The long goal is terraforming, the gentle way: neem where the ground is hard and dry, banyan and peepal where there's room to spread. In Japan, time spent among trees has a name, shinrin-yoku, forest bathing. I'd like that hush to be ordinary in Delhi.
 
 ![The yard thirty years after planting: a closed grove of neems over cooler ground](https://neem-lemon.vercel.app/media/future-y30.jpg)
 

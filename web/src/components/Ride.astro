@@ -58,8 +58,8 @@ const beats: Record<number, { title: string; text: string }> = {
     </p>
   </header>
 
-  <div class="ride-screen">
-    <div class="wrap ride-track" data-ride={STAGES.map((s) => s.years).join(",")} style={`--years:${STAGES.length}`}>
+  <div class="wrap ride-track" data-ride={STAGES.map((s) => s.years).join(",")} style={`--years:${STAGES.length}`}>
+    <div class="ride-left">
       <div class="ride-clock" aria-hidden="true">
         <p class="kicker">Years after planting</p>
         <p class="ride-n num" data-year>0</p>
@@ -73,44 +73,6 @@ const beats: Record<number, { title: string; text: string }> = {
             <span style={`left:${(((s.years + 0.5) / RAIL.length) * 100).toFixed(2)}%`}>{s.years}</span>
           ))}
         </div>
-      </div>
-
-      <div class="ride-stage" aria-hidden="true">
-        <div class="ride-plate">
-          <div class:list={["ride-film", { flat: !FILM }]}>
-            {STAGES.map((s, i) => (
-              <img
-                class:list={["ride-poster", { shown: i === 0, flat: !FILM }]}
-                src={FILM ? `/media/future-y${s.years}.jpg` : s.map}
-                alt=""
-                width={FILM ? 1280 : 233}
-                height={FILM ? 800 : 260}
-                loading="lazy"
-                decoding="async"
-              />
-            ))}
-            {FILM && (
-              <video class="ride-video" muted playsinline preload="none" width="1280" height="800">
-                <source src="/media/future-ride.webm" type="video/webm" />
-                <source src="/media/future-ride.mp4" type="video/mp4" />
-              </video>
-            )}
-          </div>
-          {FILM && (
-            <figure class="ride-inset">
-              <div class="ride-inset-maps">
-                {STAGES.map((s, i) => (
-                  <img class:list={["ride-inset-map", { shown: i === 0 }]} src={s.map} alt="" width="233" height="260" loading="lazy" decoding="async" />
-                ))}
-              </div>
-              <figcaption class="xs">SOLWEIG, 1 m</figcaption>
-            </figure>
-          )}
-          <span class="ride-marks"></span>
-        </div>
-        <p class="ride-caption xs">
-          {name} at 1 pm. The ground is coloured by each year's SOLWEIG feels-like map.
-        </p>
       </div>
 
       <ol class="ride-beats">
@@ -177,10 +139,46 @@ const beats: Record<number, { title: string; text: string }> = {
           </li>
         ))}
       </ol>
-      <div class="ride-spacer" aria-hidden="true"></div>
-
-      <p class="ride-cut" data-cut>She is still nine.</p>
     </div>
+
+    <div class="ride-stage" aria-hidden="true">
+      <div class="ride-plate">
+        <div class:list={["ride-film", { flat: !FILM }]}>
+          {STAGES.map((s, i) => (
+            <img
+              class:list={["ride-poster", { shown: i === 0, flat: !FILM }]}
+              src={FILM ? `/media/future-y${s.years}.jpg` : s.map}
+              alt=""
+              width={FILM ? 1280 : 233}
+              height={FILM ? 800 : 260}
+              loading="lazy"
+              decoding="async"
+            />
+          ))}
+          {FILM && (
+            <video class="ride-video" muted playsinline preload="none" width="1280" height="800">
+              <source src="/media/future-ride.webm" type="video/webm" />
+              <source src="/media/future-ride.mp4" type="video/mp4" />
+            </video>
+          )}
+        </div>
+        {FILM && (
+          <figure class="ride-inset">
+            <div class="ride-inset-maps">
+              {STAGES.map((s, i) => (
+                <img class:list={["ride-inset-map", { shown: i === 0 }]} src={s.map} alt="" width="233" height="260" loading="lazy" decoding="async" />
+              ))}
+            </div>
+            <figcaption class="xs">SOLWEIG, 1 m</figcaption>
+          </figure>
+        )}
+        <span class="marks"></span>
+      </div>
+      <p class="ride-caption xs">
+        {name} at 1 pm. The ground is coloured by each year's SOLWEIG feels-like map.
+      </p>
+    </div>
+    <div class="ride-spacer" aria-hidden="true"></div>
   </div>
 
   <div class="wrap ride-growth">
@@ -192,7 +190,7 @@ const beats: Record<number, { title: string; text: string }> = {
             alt={s.years ? `Year ${s.years}: ${metres(s)} tall, crown ${s.crown_m} m across` : "Today: bare ground"}
             loading="lazy"
           />
-          <span class="xs num">{s.years ? `Year ${s.years} · ${metres(s)}` : "Today"}</span>
+          <span class="xs num">{s.years ? <>Year {s.years}<br />{metres(s)}</> : <>Today<br />no tree</>}</span>
         </li>
       ))}
     </ol>
@@ -219,31 +217,6 @@ const beats: Record<number, { title: string; text: string }> = {
     </figcaption>
   </figure>
 
-  <div class="wrap ride-vision">
-    <p class="kicker">A vision</p>
-    <p class="ride-big">Then the next yard.</p>
-    <div class="ride-vision-text">
-      <p>
-        766 Delhi yards are waiting. Neem where the ground is hard and dry, banyan and peepal where
-        there's room to spread, and the hush you only find under very big trees. Then the streets,
-        then India. Long term, a planet that grows its own shade: terraforming, the gentle way.
-      </p>
-      <p>
-        Every result above is a model run. This part is a dream. Next, any courtyard filmed on a
-        phone gets its own ride: the <a href="#yard3d">reconstruction pipeline</a> is built and
-        tested, and the first real yard is next.
-      </p>
-    </div>
-    <p><a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a></p>
-  </div>
-  <img
-    class="ride-grove"
-    src="/art/grove.svg"
-    alt="A schoolyard grown into a grove at night: neems and a banyan with hanging roots, children in the shade, fireflies under the crowns"
-    width="320"
-    height="92"
-    loading="lazy"
-  />
 </section>
 
 <script>
@@ -328,20 +301,19 @@ const beats: Record<number, { title: string; text: string }> = {
   const live = window.matchMedia("(min-width: 1000px) and (prefers-reduced-motion: no-preference)");
 
   for (const track of document.querySelectorAll<HTMLElement>("[data-ride]")) {
-    const screen = track.parentElement as HTMLElement;
     const video = track.querySelector("video");
     const posters = Array.from(track.querySelectorAll<HTMLImageElement>(".ride-poster"));
     const maps = Array.from(track.querySelectorAll<HTMLImageElement>(".ride-inset-map"));
     const beats = Array.from(track.querySelectorAll<HTMLElement>(".ride-beat"));
     const spacer = track.querySelector(".ride-spacer") as HTMLElement;
-    const cut = track.querySelector("[data-cut]") as HTMLElement;
     const clock = track.querySelector(".ride-clock") as HTMLElement;
+    const left = track.querySelector(".ride-left") as HTMLElement;
     const stage = track.querySelector(".ride-stage") as HTMLElement;
     const plate = track.querySelector(".ride-plate") as HTMLElement;
+    const stack = track.querySelector(".ride-beats") as HTMLElement;
     const yearEl = track.querySelector("[data-year]") as HTMLElement;
     const cells = Array.from(track.querySelectorAll<HTMLElement>(".ride-rail i"));
     const runs = (track.dataset.ride ?? "0").split(",").map(Number);
-    const last = runs[runs.length - 1] ?? 30;
 
     let ride: Ride | null = null;
     let ready = false;
@@ -349,19 +321,23 @@ const beats: Record<number, { title: string; text: string }> = {
     let queued = false;
     let centres: number[] = [];
     let gap = 1;
-    let cutAt = Number.POSITIVE_INFINITY;
 
-    // the spacer is the ride's length: each year gets an equal stretch of it, and its middle is
-    // where the film rests on that year. The cards pin as one stack under the clock, or level
-    // with the top of the plate when a tall screen centres the plate lower than that
+    // the spacer is the ride's length. The first year rests the moment the ride pins and the
+    // last as it lets go, with the others evenly between. The cards sit under the clock, or
+    // level with the top of the plate when a tall screen centres the plate lower than that
     const measure = () => {
       const run = spacer.getBoundingClientRect();
-      gap = Math.max(1, run.height / beats.length);
-      centres = beats.map((_, k) => run.top + window.scrollY + (k + 0.5) * gap);
-      cutAt = cut.getBoundingClientRect().top + window.scrollY;
-      const underClock = MASTHEAD + clock.offsetHeight + 32;
+      const view = window.innerHeight - MASTHEAD;
+      gap = Math.max(1, (run.height - view) / Math.max(1, beats.length - 1));
+      centres = beats.map((_, k) => run.top + window.scrollY + view / 2 + k * gap);
       const plateTop = MASTHEAD + plate.getBoundingClientRect().top - stage.getBoundingClientRect().top;
-      track.style.setProperty("--card-top", `${Math.max(underClock, plateTop)}px`);
+      const shift = Math.max(32, plateTop - MASTHEAD - clock.offsetHeight);
+      track.style.setProperty("--card-shift", `${shift}px`);
+      // both columns are a window tall; what neither uses at the bottom, the next section may
+      const below = (outer: HTMLElement, inner: Element) =>
+        outer.getBoundingClientRect().bottom - inner.getBoundingClientRect().bottom;
+      const caption = stage.lastElementChild ?? plate;
+      track.style.setProperty("--tail", `${Math.max(0, Math.min(below(stage, caption), below(left, stack)))}px`);
     };
 
     // the run we are at or past, and how far toward the next (0 to 1); the film rests on each
@@ -390,10 +366,8 @@ const beats: Record<number, { title: string; text: string }> = {
 
     const paint = () => {
       queued = false;
-      // the middle of what is visible under the masthead and the sticky year
-      const top = MASTHEAD + clock.offsetHeight;
-      const line = window.scrollY + top + (window.innerHeight - top) / 2;
-      track.classList.toggle("cut", line >= cutAt);
+      // the middle of the window under the masthead
+      const line = window.scrollY + MASTHEAD + (window.innerHeight - MASTHEAD) / 2;
       const [i, t] = position(line);
       const from = runs[i] ?? 0;
       let year = from + t * ((runs[i + 1] ?? from) - from);
@@ -419,14 +393,16 @@ const beats: Record<number, { title: string; text: string }> = {
           p.classList.toggle("shown", k === nearest);
         });
       }
-      // only the year the film rests on has its card up: full while it rests, gone halfway
+      // only the year the film rests on has its card up: full while it rests, gone halfway;
+      // today's card is up as the ride arrives and year 30's stays up as it leaves
       beats.forEach((beat, k) => {
-        const d = Math.abs((centres[k] ?? 0) - line) / gap;
+        const c = centres[k] ?? 0;
+        const edge = (k === 0 && line < c) || (k === beats.length - 1 && line > c);
+        const d = edge ? 0 : Math.abs(c - line) / gap;
         const focus = Math.min(1, Math.max(0, (GONE - d) / (GONE - HOLD)));
         beat.style.setProperty("--focus", focus.toFixed(3));
         beat.classList.toggle("off", focus === 0);
       });
-      screen.style.setProperty("--cool", (year / last).toFixed(3));
     };
     const schedule = () => {
       if (queued) return;
@@ -513,15 +489,6 @@ const beats: Record<number, { title: string; text: string }> = {
     .ride-head .kicker {
       grid-column: 1 / -1;
     }
-  }
-
-  /* the screen: plain night with no stars, cooling from warm black toward the green-black of
-     deep shade as the years pass */
-  .ride-screen {
-    --cool: 0;
-    --screen: color-mix(in oklab, #13100d, #0a1510 calc(var(--cool) * 100%));
-    /* the stars come back under the last line */
-    background: linear-gradient(var(--screen) calc(100% - 45svh), transparent);
   }
 
   .ride-clock,
@@ -690,16 +657,8 @@ const beats: Record<number, { title: string; text: string }> = {
     padding: 0 0.18em 0.04em;
   }
 
-  .ride-cut {
-    margin: 0;
-    padding-block: var(--section);
-    font: 400 clamp(2.5rem, 6vw, 5.5rem) / 1 var(--serif);
-    letter-spacing: -0.02em;
-    text-align: center;
-  }
-
-  /* wide screens with motion: the year and its timeline stick on the left, the film on the
-     right, and each year's card scrolls up under the year */
+  /* wide screens with motion: the year and its timeline stick on the left with that year's
+     card under them, and the film on the right */
   @media (min-width: 1000px) and (prefers-reduced-motion: no-preference) {
     .ride-track.live {
       display: grid;
@@ -708,39 +667,46 @@ const beats: Record<number, { title: string; text: string }> = {
       align-items: start;
     }
 
+    /* the clock and the year's card pin as one column beside the stage, both a window tall,
+       so they arrive and leave together */
+    .live .ride-left,
+    .live .ride-stage {
+      align-self: start;
+      position: sticky;
+      top: 57px;
+      height: calc(100svh - 57px);
+      pointer-events: none;
+    }
+
+    /* the next section starts where the pinned columns' content ends, not a window later */
+    .ride-track.live {
+      margin-bottom: calc(-1 * var(--tail, 0px));
+    }
+
+    .live .ride-left {
+      grid-area: 1 / 1;
+      display: grid;
+      align-content: start;
+    }
+
     .live .ride-clock {
       display: grid;
       gap: var(--s-2);
-      grid-column: 1;
-      grid-row: 1;
-      position: sticky;
-      top: 57px;
-      z-index: 2;
       padding-block: var(--s-6) var(--s-5);
-      background: var(--screen);
       box-shadow: 0 1px 0 var(--line);
     }
 
     .live .ride-stage {
+      grid-area: 1 / 2;
       display: grid;
       align-content: center;
       gap: var(--s-4);
-      grid-column: 2;
-      grid-row: 1 / span 2;
-      position: sticky;
-      top: 57px;
-      height: calc(100svh - 57px);
     }
 
-    /* the cards pin as one stack under the clock while the spacer beside them gives each year
-       two thirds of a screen of scroll; only the year the film rests on shows, so nothing
+    /* the cards stack in one place; only the year the film rests on shows, so nothing
        half-read ever slides about */
     .live .ride-beats {
-      grid-column: 1;
-      grid-row: 2;
-      align-self: start;
-      position: sticky;
-      top: var(--card-top, calc(57px + 17rem));
+      margin-top: var(--card-shift, var(--s-6));
       grid-template-columns: minmax(0, 1fr);
       gap: 0;
       padding: 0;
@@ -755,11 +721,11 @@ const beats: Record<number, { title: string; text: string }> = {
       visibility: hidden;
     }
 
+    /* the ride's length: a window, then two thirds of one for each year after the first */
     .live .ride-spacer {
       display: block;
-      grid-column: 1;
-      grid-row: 2;
-      height: calc(var(--years) * 66svh);
+      grid-area: 1 / 1;
+      height: calc(100svh - 57px + (var(--years) - 1) * 66svh);
     }
 
     .live .ride-readout .wide {
@@ -772,21 +738,6 @@ const beats: Record<number, { title: string; text: string }> = {
     .live .ride-card > .kicker,
     .live .ride-map {
       display: none;
-    }
-
-    .live .ride-cut {
-      grid-column: 1 / -1;
-      grid-row: 3;
-      min-height: calc(100svh - 57px);
-      display: grid;
-      place-items: center;
-      padding: 0;
-    }
-
-    /* the cut: the picture and the clock vanish, the line is alone in the dark */
-    .cut .ride-stage,
-    .cut .ride-clock {
-      visibility: hidden;
     }
   }
 
@@ -838,22 +789,6 @@ const beats: Record<number, { title: string; text: string }> = {
   .ride-plate {
     position: relative;
     box-shadow: 0 0 0 1px var(--line);
-  }
-
-  .ride-marks {
-    --m: linear-gradient(var(--ink), var(--ink));
-    position: absolute;
-    inset: -6px;
-    pointer-events: none;
-    background:
-      var(--m) left 5px top 0 / 1px 11px no-repeat,
-      var(--m) left 0 top 5px / 11px 1px no-repeat,
-      var(--m) right 5px top 0 / 1px 11px no-repeat,
-      var(--m) right 0 top 5px / 11px 1px no-repeat,
-      var(--m) left 5px bottom 0 / 1px 11px no-repeat,
-      var(--m) left 0 bottom 5px / 11px 1px no-repeat,
-      var(--m) right 5px bottom 0 / 1px 11px no-repeat,
-      var(--m) right 0 bottom 5px / 11px 1px no-repeat;
   }
 
   .ride-film {
@@ -948,11 +883,9 @@ const beats: Record<number, { title: string; text: string }> = {
   .ride-trees {
     list-style: none;
     margin: 0;
-    padding: 0 0 var(--s-3);
+    padding: 0;
     display: flex;
     align-items: end;
-    gap: var(--s-5);
-    border-bottom: 1px solid var(--line);
   }
 
   .ride-trees li {
@@ -962,33 +895,33 @@ const beats: Record<number, { title: string; text: string }> = {
     flex: none;
   }
 
-  /* the six drawings are 560 cells wide side by side and 130 tall: fit the row to the column */
+  /* the six drawings are 538 cells wide side by side and 138 tall, each sized to its crown:
+     set edge to edge, their ground strips run as one across the column */
   .ride-trees img {
-    height: clamp(
-      100px,
-      (min(100vw, var(--page)) - 2 * var(--gutter) - 5 * var(--s-5)) * 130 / 560,
-      260px
-    );
+    display: block;
+    height: calc((min(100vw, var(--page)) - 2 * var(--gutter)) * 138 / 538);
     width: auto;
     image-rendering: pixelated;
   }
 
+  /* no wider than its drawing: the label wraps under it rather than pushing the ground apart */
   .ride-trees span {
+    width: 0;
+    min-width: 100%;
     color: var(--muted);
     text-align: center;
   }
 
-  /* phones: two rows of three, still one scale, sized so the widest drawing (140 cells) fills
+  /* phones: two rows of three, still one scale, sized so the widest drawing (150 cells) fills
      its third */
   @media (max-width: 639px) {
     .ride-trees {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: var(--s-6) var(--s-3);
-      overflow: visible;
+      gap: var(--s-6) 0;
     }
     .ride-trees img {
-      height: calc((100vw - 2 * var(--gutter) - 2 * var(--s-3)) / 3 * 130 / 140);
+      height: calc((100vw - 2 * var(--gutter)) / 3 * 138 / 150);
     }
   }
 
@@ -1031,37 +964,5 @@ const beats: Record<number, { title: string; text: string }> = {
     .ride-bloom {
       grid-template-columns: auto minmax(0, 1fr);
     }
-  }
-
-  .ride-vision {
-    display: grid;
-    gap: var(--s-5);
-    padding-block: var(--section) var(--s-6);
-  }
-
-  .ride-big {
-    font: 400 clamp(2.5rem, 6vw, 5rem) / 1 var(--serif);
-    letter-spacing: -0.02em;
-  }
-
-  .ride-vision-text {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: var(--s-5) var(--s-8);
-    max-width: 62rem;
-  }
-
-  .ride-vision a:not(.button) {
-    color: var(--ink);
-  }
-
-  /* the section comes to rest on the grove, cropped at the sides on narrow screens */
-  .ride-grove {
-    display: block;
-    width: 100%;
-    height: max(150px, calc(100vw * 92 / 320));
-    object-fit: cover;
-    object-position: 50% 100%;
-    margin-bottom: -1px;
   }
 </style>

@@ -1,0 +1,314 @@
+---
+// Why Neem starts in schoolyards, and where it goes after them. The numbers come from the same
+// runs as the rest of the page; the quotes are from people who said it first.
+import ranking from "../data/ranking.json";
+import showcase from "../data/showcase.json";
+import { ml, temp } from "../lib/format";
+import { TODAY } from "../lib/future";
+
+const { stats } = ranking;
+
+const reasons = [
+  {
+    title: "No child should learn in that heat",
+    text: `In an open Delhi yard a nine-year-old loses ${ml(TODAY.water_ml)} of water before lunch, on ground that feels like ${temp(TODAY.yard_1pm)} at 1 pm. Shade comes first.`,
+  },
+  {
+    title: "A schoolyard is a seed bed",
+    text: `${stats.schools} yards across the whole city, each with open ground and a gate that opens every morning. Plant them, and every neighbourhood grows a grove.`,
+  },
+  {
+    title: "Children who grow up under trees plant them",
+    text: "The nine-year-olds who water these saplings will plant the streets, the pavements and the parks, and teach their own children to look after them.",
+  },
+];
+
+const rings = [
+  "Schoolyards",
+  "Streets and pavements",
+  "Parks",
+  "The city",
+  "A planet that grows its own shade",
+];
+
+const quotes = [
+  { text: "The creation of a thousand forests is in one acorn.", by: "Ralph Waldo Emerson" },
+  {
+    text: "Trees are the earth's endless effort to speak to the listening heaven.",
+    by: "Rabindranath Tagore",
+  },
+];
+---
+
+<section class="wrap seed" aria-labelledby="seed-title">
+  <header class="seed-head">
+    <p class="kicker">Why schools first</p>
+    <h2 class="seed-title" id="seed-title">Start with the children.</h2>
+    <p class="seed-lede">
+      They feel the heat first and longest, and they are the ones who will carry the shade forward.
+      In a few years every planted yard is a grove, and the groves are where the city's shade
+      begins.
+    </p>
+  </header>
+
+  <ol class="seed-reasons">
+    {reasons.map((r, i) => (
+      <li>
+        <span class="seed-n num" aria-hidden="true">{String(i + 1).padStart(2, "0")}</span>
+        <h3 class="seed-h">{r.title}</h3>
+        <p>{r.text}</p>
+      </li>
+    ))}
+  </ol>
+
+  <ol class="seed-rings" aria-label="Where it goes after the schools">
+    {rings.map((ring) => <li>{ring}</li>)}
+  </ol>
+
+  <figure class="seed-quote">
+    <blockquote>
+      <p>A society grows great when old men plant trees in whose shade they know they shall never sit.</p>
+    </blockquote>
+    <figcaption class="kicker">Greek proverb</figcaption>
+  </figure>
+
+  <div class="seed-quotes">
+    {quotes.map((q) => (
+      <figure>
+        <blockquote>
+          <p>{q.text}</p>
+        </blockquote>
+        <figcaption class="kicker">{q.by}</figcaption>
+      </figure>
+    ))}
+  </div>
+
+  <div class="seed-vision">
+    <p class="kicker">The long view</p>
+    <p class="seed-big">Terraforming, the gentle way.</p>
+    <div class="seed-text">
+      <p>
+        Schools are the first ring. Then the streets, the pavements and the parks, then the city,
+        then the country: neem where the ground is hard and dry, banyan and peepal where there is
+        room to spread. In Japan, time spent among trees has a name, <i lang="ja">shinrin-yoku</i>,
+        forest bathing. We want that hush to be ordinary here: cooler days, calmer minds and longer
+        lives, under trees that children planted.
+      </p>
+      <p>
+        Every number above this line is a model run. This part is a dream, and the reason for all
+        the rest.
+      </p>
+    </div>
+    <p><a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a></p>
+  </div>
+</section>
+<img
+  class="seed-grove"
+  src="/art/grove.svg"
+  alt="A schoolyard grown into a grove at night: neems and a banyan with hanging roots, children in the shade, fireflies under the crowns"
+  width="320"
+  height="92"
+  loading="lazy"
+/>
+
+<style>
+  .seed {
+    display: grid;
+    gap: var(--s-8);
+    padding-block: var(--section) var(--s-8);
+  }
+
+  .seed-head {
+    display: grid;
+    gap: var(--s-4) var(--s-8);
+  }
+
+  .seed-title {
+    font: 400 clamp(3.25rem, 9vw, 8.5rem) / 0.92 var(--serif);
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .seed-lede {
+    max-width: 44ch;
+    font-size: var(--t-l);
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  @media (min-width: 1000px) {
+    .seed-head {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      align-items: end;
+    }
+    .seed-head .kicker {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* three reasons, set as type: a numeral, a line, a sentence */
+  .seed-reasons {
+    list-style: none;
+    margin: 0;
+    padding: var(--s-6) 0 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+    gap: var(--s-7) var(--s-8);
+    border-top: 1px solid var(--line);
+  }
+
+  .seed-reasons li {
+    display: grid;
+    gap: var(--s-3);
+    align-content: start;
+  }
+
+  .seed-n {
+    font: 400 clamp(2.5rem, 4vw, 3.5rem) / 1 var(--serif);
+    color: var(--leaf);
+  }
+
+  .seed-h {
+    font: 400 var(--t-xl) / 1.1 var(--serif);
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .seed-reasons p {
+    max-width: 36ch;
+    color: var(--muted);
+  }
+
+  /* the rings outward from the schools: one line, a cell at each, the last one lit */
+  .seed-rings {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    font-size: var(--t-s);
+  }
+
+  .seed-rings li {
+    position: relative;
+    padding: var(--s-5) var(--s-4) 0 0;
+    border-top: 1px solid var(--line-strong);
+  }
+
+  .seed-rings li::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 0;
+    width: 11px;
+    height: 11px;
+    background: var(--ink);
+  }
+
+  .seed-rings li:last-child::before {
+    background: var(--leaf);
+  }
+
+  .seed-rings li:last-child {
+    color: var(--leaf);
+  }
+
+  @media (max-width: 720px) {
+    .seed-rings {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-4);
+      padding-left: var(--s-5);
+      border-left: 1px solid var(--line-strong);
+    }
+    .seed-rings li {
+      padding: 0;
+      border-top: 0;
+    }
+    .seed-rings li::before {
+      top: 0.35em;
+      left: calc(-1 * var(--s-5) - 6px);
+    }
+  }
+
+  blockquote {
+    margin: 0;
+  }
+
+  /* the big one hangs its opening mark in the margin */
+  .seed-quote {
+    margin: var(--s-6) 0 0;
+    display: grid;
+    gap: var(--s-5);
+  }
+
+  .seed-quote p {
+    position: relative;
+    max-width: 22ch;
+    font: 400 clamp(2.25rem, 4.6vw, 4.25rem) / 1.06 var(--serif);
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  .seed-quote p::before {
+    content: "\201C";
+    position: absolute;
+    right: 100%;
+    padding-right: 0.08em;
+    color: var(--leaf);
+  }
+
+  .seed-quotes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--s-7) var(--s-8);
+  }
+
+  .seed-quotes figure {
+    margin: 0;
+    display: grid;
+    gap: var(--s-3);
+    padding-top: var(--s-5);
+    border-top: 1px solid var(--line);
+  }
+
+  .seed-quotes p {
+    max-width: 30ch;
+    font: 400 var(--t-xl) / 1.2 var(--serif);
+    letter-spacing: -0.01em;
+  }
+
+  .seed-vision {
+    display: grid;
+    gap: var(--s-5);
+    padding-top: var(--s-6);
+  }
+
+  .seed-big {
+    font: 400 clamp(2.5rem, 6vw, 5rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+  }
+
+  .seed-text {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--s-5) var(--s-8);
+    max-width: 62rem;
+  }
+
+  /* the page comes to rest on the grove, cropped at the sides on narrow screens */
+  .seed-grove {
+    display: block;
+    width: 100%;
+    height: max(150px, calc(100vw * 92 / 320));
+    object-fit: cover;
+    object-position: 50% 100%;
+    margin-bottom: -1px;
+  }
+
+  @media (max-width: 560px) {
+    .seed-quote p::before {
+      position: static;
+      padding-right: 0;
+    }
+  }
+</style>
