@@ -58,7 +58,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
       <img src="/art/neem-right.svg" alt="" width="84" height="52" fetchpriority="low" />
     </div>
     <main id="main">
-      <div class="vines" aria-hidden="true"></div>
       <slot />
     </main>
     <footer class:list={["footer", night && "night"]}>
@@ -95,55 +94,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     background: var(--ink);
     color: var(--paper);
     z-index: 10;
-  }
-
-  /* creepers climbing down both edges of the window, in two layers: a dark one behind, and a
-     brighter one in front with roots and flowers; the right side is the left mirrored and out of
-     step, so the two never line up. They sit inside the gutter, clear of the text */
-  main {
-    position: relative;
-    isolation: isolate;
-  }
-
-  /* they grow out from under the hanging branches and thin away before the foot, never cut */
-  .vines {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    z-index: -1;
-    mask-image: linear-gradient(transparent, #000 140px, #000 calc(100% - 420px), transparent);
-  }
-
-  .vines::before,
-  .vines::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 46px;
-    background:
-      url("/art/vine-front.svg") 2px 0 / 40px auto repeat-y,
-      url("/art/vine-back.svg") 10px 120px / 34px auto repeat-y;
-    image-rendering: pixelated;
-    opacity: 0.8;
-  }
-
-  .vines::before {
-    left: 0;
-  }
-
-  .vines::after {
-    right: 0;
-    transform: scaleX(-1);
-    background-position:
-      2px 300px,
-      10px 0;
-  }
-
-  @media (max-width: 720px) {
-    .vines {
-      display: none;
-    }
   }
 
   .masthead {
