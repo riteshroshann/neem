@@ -108,11 +108,13 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     isolation: isolate;
   }
 
+  /* they grow out from under the hanging branches and thin away before the foot, never cut */
   .vines {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: -1;
+    mask-image: linear-gradient(transparent, #000 140px, #000 calc(100% - 420px), transparent);
   }
 
   .vines::before,
