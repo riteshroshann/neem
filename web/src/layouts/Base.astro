@@ -50,10 +50,7 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
           <a href="/method">Method</a>
           <a href="/docs">Docs</a>
         </nav>
-        <div class="end">
-          <a class="get" href="/download">Download</a>
-          <p class="credit">Created by <a href="https://github.com/riteshroshann">Ritesh&nbsp;Roshan</a></p>
-        </div>
+        <p class="credit">Created by <a href="https://github.com/riteshroshann">Ritesh&nbsp;Roshan</a></p>
       </div>
     </header>
     <div class="canopy" aria-hidden="true">
@@ -156,27 +153,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     background: rgb(19 16 13 / 0.92);
     backdrop-filter: saturate(1.3) blur(12px);
     border-bottom: 1px solid var(--line);
-  }
-
-  .end {
-    display: flex;
-    align-items: center;
-    gap: var(--s-5);
-  }
-
-  /* the app for Windows, one click from every page */
-  .get {
-    padding: 5px 12px;
-    border: 1px solid var(--line-strong);
-    font-size: var(--t-xs);
-    font-weight: 500;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .get:hover {
-    background: var(--ink);
-    color: var(--paper);
   }
 
   .credit {
@@ -322,10 +298,8 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
       grid-area: nav;
       gap: var(--s-4);
     }
-    .end {
+    .credit {
       grid-area: credit;
-      justify-content: space-between;
-      margin-top: var(--s-2);
     }
     .canopy {
       top: 70px;
