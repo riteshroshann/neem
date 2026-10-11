@@ -18,6 +18,38 @@ def sun_position(
 ) -> SunPosition:
     """Sun position at a local clock time. `when` is naive local time."""
     utc = when - timedelta(hours=utc_offset)
+    decl, eq_time = _declination_and_eot(utc)
+
+    minutes = utc.hour * 60 + utc.minute + utc.second / 60
+    true_solar = (minutes + eq_time + 4 * longitude) % 1440
+    hour_angle = true_solar / 4 - 180 if true_solar >= 0 else true_solar / 4 + 180
+
+    lat = math.radians(latitude)
+    ha = math.radians(hour_angle)
+    cos_zen = math.sin(lat) * math.sin(decl) + math.cos(lat) * math.cos(decl) * math.cos(ha)
+    zen = math.acos(max(-1.0, min(1.0, cos_zen)))
+
+    sin_zen = math.sin(zen)
+    if sin_zen < 1e-9:
+        azimuth = 180.0
+    else:
+        cos_az = (math.sin(lat) * math.cos(zen) - math.sin(decl)) / (math.cos(lat) * sin_zen)
+        az = math.degrees(math.acos(max(-1.0, min(1.0, cos_az))))
+        azimuth = (az + 180) % 360 if hour_angle > 0 else (540 - az) % 360
+
+    return SunPosition(altitude=90.0 - math.degrees(zen), azimuth=azimuth)
+
+
+def subsolar_point(utc: datetime) -> tuple[float, float]:
+    """Latitude and longitude (east positive) where the sun is straight overhead at `utc`."""
+    decl, eq_time = _declination_and_eot(utc)
+    minutes = utc.hour * 60 + utc.minute + utc.second / 60
+    lon = (720 - minutes - eq_time) / 4
+    return math.degrees(decl), (lon + 180) % 360 - 180
+
+
+def _declination_and_eot(utc: datetime) -> tuple[float, float]:
+    """Solar declination (radians) and the equation of time (minutes)."""
     jd = _julian_day(utc)
     jc = (jd - 2451545.0) / 36525.0
 
@@ -46,25 +78,7 @@ def sun_position(
         - 0.5 * y * y * math.sin(4 * l0)
         - 1.25 * ecc * ecc * math.sin(2 * m)
     )
-
-    minutes = utc.hour * 60 + utc.minute + utc.second / 60
-    true_solar = (minutes + eq_time + 4 * longitude) % 1440
-    hour_angle = true_solar / 4 - 180 if true_solar >= 0 else true_solar / 4 + 180
-
-    lat = math.radians(latitude)
-    ha = math.radians(hour_angle)
-    cos_zen = math.sin(lat) * math.sin(decl) + math.cos(lat) * math.cos(decl) * math.cos(ha)
-    zen = math.acos(max(-1.0, min(1.0, cos_zen)))
-
-    sin_zen = math.sin(zen)
-    if sin_zen < 1e-9:
-        azimuth = 180.0
-    else:
-        cos_az = (math.sin(lat) * math.cos(zen) - math.sin(decl)) / (math.cos(lat) * sin_zen)
-        az = math.degrees(math.acos(max(-1.0, min(1.0, cos_az))))
-        azimuth = (az + 180) % 360 if hour_angle > 0 else (540 - az) % 360
-
-    return SunPosition(altitude=90.0 - math.degrees(zen), azimuth=azimuth)
+    return decl, eq_time
 
 
 def _julian_day(utc: datetime) -> float:

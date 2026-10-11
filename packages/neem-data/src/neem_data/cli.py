@@ -86,6 +86,22 @@ def rank(
     print(f"rank -> {out}")
 
 
+@app.command("verify-plan")
+def verify_plan(
+    school_id: str = typer.Argument("", help="one school, or every stored plan"),
+    day: str = typer.Option("", help="defaults to the showcase day"),
+) -> None:
+    """Re-run stored planner designs through SOLWEIG and keep the fields for the site."""
+    from neem_data import lake
+    from neem_data.designs import verify_plan as run_plan
+    from neem_data.forcing import showcase_day
+
+    ids = [school_id] if school_id else sorted(p.stem for p in (lake.ROOT / "plans").glob("*.json"))
+    for sid in ids:
+        out = run_plan(sid, day or showcase_day())
+        print(f"verify-plan {sid} -> {out}")
+
+
 @app.command()
 def publish(
     day: str = typer.Option("", help="defaults to the showcase day"),
