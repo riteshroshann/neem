@@ -1,6 +1,6 @@
 # Neem: status and handoff
 
-Last updated: Sat 10 Oct 2026, about 8:15 PM IST. Deadline: **Sun 11 Oct 2026, 8:00 PM IST** (WeMakeDevs x AWS Environmental Hacks, Heat & Water track). Submission = public repo + 3-minute YouTube video (AWS tooling visible on screen) + short writeup listing AI tools used.
+Last updated: Sun 11 Oct 2026, about 9:00 AM IST. Deadline: **Sun 11 Oct 2026, 8:00 PM IST** (WeMakeDevs x AWS Environmental Hacks, Heat & Water track). Submission = public repo + 3-minute YouTube video (AWS tooling visible on screen) + short writeup listing AI tools used (ready: `docs/SUBMISSION.md`).
 
 Track chosen: **Build It** (AWS open-source tools, on the machine, no AWS account). Tools in use: **Strands Agents SDK, SAM CLI, LocalStack, Cedar**. Ship It (real AWS deploy) is optional later and needs an account; `infra/template.yaml` is ready for it.
 
@@ -17,9 +17,11 @@ Track chosen: **Build It** (AWS open-source tools, on the machine, no AWS accoun
 - API (`neem-api`): FastAPI, job ports (files+threads / DynamoDB+SQS), **Cedar** authorization (`policies/neem.cedar` + schema): anyone explores; verification has a size and rate budget; only a school's planner approves, only verified plans. Token identity table (`NEEM_DEV_TOKENS`) stands in for Cognito.
 - Worker (`neem-worker`): SQS loop + Lambda handler; bootstrap creates table, queue, lake bucket, seeds the lake, queues a demo job.
 - Planner agent (`neem-agent`): **Strands Agents** + Ollama `qwen3:4b` on the GPU. Tools: brief, plant_trees (hottest-first placement, budget enforced in the tool), add_shade_sail, preview, verify. Plans saved to `lake/plans/` and published.
-- Web (`web/`): editorial site (index with dot map and ranking, school pages with the planner island, method page). T0 ported to TypeScript and pinned to Python by a shared-fixture differential test. "Load Neem's plan" shows the agent's verified plan on the public site.
+- Web (`web/`): one theme, everything drawn in square cells like the 1 m physics grid. Home: a cell-drawn Earth lit by the model's sun for the 1 pm hour (subsolar point from `neem_core.sun.subsolar_point`), a four-panel zoom (Delhi, one yard, one square metre, one child), a before/after slider of real SOLWEIG maps for the agent's plan, a pipeline strip naming the AWS tools, the city map with the hottest and coolest yards annotated, the twins and a searchable ranking. `/story` is the long-form writeup with live figures. Neem branches hang into the top corners and a schoolyard strip tops the footer (`tools/cell_art.py`). School pages: planner island (trees only on open ground, honest verify state on the static site), child chart. Every number is read from `src/data/*.json` or `public/twins/*`, written by `neem-data publish`.
+- Palette: colour anchors and the UTCI heat-stress bands are separate (`neem_core.palette.BANDS`: 26 moderate, 32 strong, 38 very strong, 46 extreme), mirrored in `web/src/lib/palette.ts` and tested on both sides.
+- `neem-data verify-plan`: re-runs every stored agent plan through SOLWEIG and keeps the field (`runs/{id}/{day}-plan`); it reproduced every stored verified number exactly. `publish` draws the plan map and writes `showcase.json`.
 - Infra: `infra/Dockerfile` (one image; Lambda Web Adapter; awslambdaric), `infra/compose.yaml` (LocalStack 4.14 + bootstrap + api + 2 workers), `infra/template.yaml` (**SAM**: S3, DynamoDB, SQS+DLQ, API Lambda + HTTP API, worker Lambda on SQS, rank + collect Lambdas, Step Functions Distributed Map), `infra/sam-env.json`, `infra/events/*.json`. `sam validate` passes; `sam build` succeeds.
-- Tests: 47 fast Python (property, differential, contract against moto, Cedar policy and HTTP), 4 slow SOLWEIG, 9 TypeScript. ADRs 0001 to 0010.
+- Tests: 63 fast Python (property, differential, contract against moto, Cedar policy and HTTP, palette bands, publish), 4 slow SOLWEIG, 15 TypeScript. ADRs 0001 to 0010. Lighthouse on the production build: home 99/100/100/100, story, method 100 across, school 98/100/100/100. QA sweep: no horizontal scroll or console errors at 390, 768, 1280 and 1920 px.
 
 ## Results (real runs)
 
@@ -33,17 +35,18 @@ Track chosen: **Build It** (AWS open-source tools, on the machine, no AWS accoun
 
 ## In progress / known issues
 
-- `sam local invoke WorkerFunction` against LocalStack: first run reached the handler and correctly reported a batch failure (missing `libexpat`); image now installs `libexpat1 libgomp1`; rerun was building at handoff. Check: `just sam-build; just localstack; just seed; just sam-worker`.
+- SAM on LocalStack works end to end (11 Oct): `just sam-build` (fixed by a root `.dockerignore`; SAM was tarring the whole 6.5 GB repo), then `just seed; just sam-worker` takes the demo job queued -> done in 225 s on CPU (the worker timeout is now 900 s, queue visibility 960 s), `just sam-rank` returns `ok`, and `just sam-api` serves `/health` and `/schools`. Step Functions on LocalStack is not yet tried.
 - T0 preview error where a design acts is about 4 to 5 C at midday (exact elsewhere); the UI states the band, and verified agent plans show preview vs physics (e.g. 45.3 vs 44.8).
 - Overture heights: about 0.5% coverage; footprint prior elsewhere.
 - LocalStack pinned to 4.14 (last open-source; 2026.x requires a token).
 
 ## Pending, in order
 
-1. Confirm the SAM worker run end to end; optionally `sam local start-api` and a Step Functions run on LocalStack.
-2. 3D moonshot (`recon/`, ADR 0007): needs the user's 60 to 90 s video of an empty courtyard. Not started.
-3. Video (3 min): problem 20 s (headline, 47 C), product 90 s (map, plant, verify, child chart, agent plan), tooling 40 s (Strands agent run in terminal, Cedar policy + 403, `sam local invoke` against LocalStack), impact 30 s (r = -0.95, 766 schools). Writeup listing AI tools. Builder Center blog.
-4. Make the repo public; polish README with the vibe skill.
+1. **Video (3 min)**, see `docs/VIDEO.md`. Run `just seed` first so `just sam-worker` visibly takes the demo job from queued to done; start `just sam-api` early (warm containers are on).
+2. **Make the repo public**, then submit: repo link, video link and the writeup in `docs/SUBMISSION.md`.
+3. **Builder Center blog**: `docs/BLOG.md` (the same story as `/story`, with images from the live site).
+4. 3D moonshot (`recon/`, ADR 0007): needs a 60 to 90 s video of an empty courtyard. Not started.
+5. After the hackathon: rotate the Resend key; optionally try Step Functions on LocalStack.
 
 ## How to resume
 

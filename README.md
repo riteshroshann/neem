@@ -4,7 +4,7 @@
 
 Neem works out how hot every square metre of a Delhi schoolyard feels to a child on a heatwave day. Then it shows what a few lakh rupees of neem trees would change, before anyone picks up a spade.
 
-Live: **[neem-lemon.vercel.app](https://neem-lemon.vercel.app)**
+Live: **[neem-lemon.vercel.app](https://neem-lemon.vercel.app)** · the story behind it: **[/story](https://neem-lemon.vercel.app/story)**
 
 ![Neem home page](docs/img/home.png)
 
@@ -14,7 +14,7 @@ On Monday 27 April 2026, Delhi's hottest school day before the summer break, we 
 
 ![Delhi schoolyards by heat](docs/img/map.png)
 
-- **Tree canopy explains almost everything.** Across schools, canopy and yard heat correlate at r = −0.95.
+- **Tree canopy explains almost everything.** The leafiest quarter of yards (68% tree cover) runs 2.8 °C cooler than the barest (15%), and across all 766, canopy and yard heat correlate at r = −0.95.
 - **One yard in three** spends more than a quarter of the school morning in extreme heat stress: a feels-like temperature (UTCI) above 46 °C.
 - **At Kendriya Vidyalaya Sector 25 in Rohini**, 2.9 km from DTU, a nine-year-old on the morning shift loses about **877 ml** of water. Their core temperature climbs 0.93 °C above rest by 12:45.
 
@@ -48,7 +48,7 @@ Neem's planner proposed 85 neems there for ₹2,97,500. SOLWEIG then verified th
 ## Run it
 
 ```sh
-uv sync && just check            # Python: lint, types, 47 tests
+uv sync && just check            # Python: lint, types, 63 tests
 cd web && bun install && bun run dev
 uv run neem-api                  # physics API on :8000
 ```

@@ -162,3 +162,17 @@ flowchart LR
 ### Web delivery
 
 The site is static Astro on Vercel. Twin layers, calibration, child days and agent plans are static files, so the drag-a-tree preview runs entirely in the browser. One Vercel Function sends a school's plan by email through Resend, to a recipient fixed in configuration.
+
+## Added on day three
+
+### Every number on the page has a run behind it
+
+`neem-data verify-plan` re-runs each stored planner design through SOLWEIG and keeps the field in `runs/{id}/{day}-plan/`. `publish` paints that field as the "after" map and writes `web/src/data/showcase.json`: the sun the model used for the 1 pm hour (taken at mid-hour, as `MetHour.sun` does), the subsolar point at the same instant, one square metre's inputs and the plan's numbers, all read from stored runs. The home page, the story page and the social card read from it; nothing on them is typed by hand.
+
+### Colours and categories are separate
+
+The heat ramp is a continuous colour scale with anchors at 26, 32, 38, 42 and 46 °C. The UTCI heat-stress categories (moderate from 26, strong from 32, very strong from 38, extreme from 46) live in their own list in `neem_core/palette.py`, are exported through `palette.json`, and drive every legend and band share. Tests pin both sides.
+
+### Frugal first paint
+
+School pages show the 1 pm map as an image straight away. The planner island fetches the 0.8 MB heat field only after the largest paint, so the field never sits in the page's critical path.
