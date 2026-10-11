@@ -76,8 +76,9 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
   title={`The air said ${Math.round(cell.ta)} °C. The schoolyard said ${Math.round(cell.utci)}.`}
   description="How Neem was built: a heat map of 766 Delhi schoolyards, a body twin for the children who play in them, and a planning agent that has to prove its trees work."
   path="/story"
+  night="page"
 >
-  <div class="night story-night">
+  <div class="story-top">
     <header class="story-head page-head">
       <p class="kicker">The story behind Neem</p>
       <h1 class="story-title">
@@ -369,14 +370,14 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
 
 <style>
   .story,
-  .story-night {
+  .story-top {
     --col: 40rem;
     --wide: 58rem;
     padding: 0 var(--gutter) var(--section);
   }
 
-  .story-night {
-    padding-bottom: var(--s-8);
+  .story-top {
+    padding-bottom: var(--s-6);
   }
 
   .story {
@@ -384,14 +385,14 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
   }
 
   .story > *,
-  .story-night > * {
+  .story-top > * {
     width: 100%;
     max-width: var(--col);
     margin-inline: auto;
   }
 
   .story > .wide,
-  .story-night > .lead {
+  .story-top > .lead {
     max-width: var(--wide);
   }
 
@@ -421,7 +422,7 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
     color: var(--ink);
   }
 
-  .story-night > .lead {
+  .story-top > .lead {
     display: grid;
     justify-items: center;
     gap: var(--s-3);
@@ -508,7 +509,7 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
     align-content: center;
     justify-items: center;
     gap: var(--s-1);
-    color: var(--paper);
+    color: #f7f1e7;
   }
 
   .heat-value {
@@ -568,7 +569,7 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
   }
 
   .note.green {
-    fill: var(--neem);
+    fill: var(--leaf);
   }
 
   .fit {
@@ -626,7 +627,7 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
   }
 
   .planned {
-    stroke: var(--neem);
+    stroke: var(--leaf);
   }
 
   .peak {
@@ -661,7 +662,7 @@ const peakAt = today.rise.indexOf(Math.max(...today.rise));
   }
 
   .cells i:nth-child(2) {
-    background: var(--neem);
+    background: var(--leaf);
   }
 
   .story > p.close {

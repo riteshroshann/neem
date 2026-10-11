@@ -5,9 +5,11 @@ interface Props {
   title: string;
   description: string;
   path?: string;
+  /** The night sky behind the whole page, or behind only its last sections; the foot follows. */
+  night?: "page" | "end";
 }
 
-const { title, description, path = "/" } = Astro.props;
+const { title, description, path = "/", night } = Astro.props;
 const canonical = new URL(path, Astro.site).toString();
 const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : `${title} · Neem`;
 ---
@@ -33,19 +35,18 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="The air reached 42 °C. The schoolyard felt like 47. 766 Delhi schoolyards, modelled for heat. Beside it, the Earth drawn in square cells and coloured by the height of the sun at 1 pm in Delhi, under a neem branch." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#faf7f1" />
+    <meta name="theme-color" content="#13100d" />
     <link rel="preload" href="/fonts/instrument-serif.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
     <slot name="head" />
   </head>
-  <body>
+  <body class={night === "page" ? "night" : undefined}>
     <a class="skip visually-hidden" href="#main">Skip to content</a>
     <div class="guides" aria-hidden="true"></div>
     <header class="masthead night">
       <div class="wrap bar">
         <a class="wordmark" href="/" aria-label="Neem, home">Neem</a>
         <nav aria-label="Primary">
-          <a href="/#schoolyards">Schoolyards</a>
           <a href="/story">Story</a>
           <a href="/method">Method</a>
         </nav>
@@ -59,8 +60,8 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     <main id="main">
       <slot />
     </main>
-    <footer class="footer">
-      <img class="ground" src="/art/ground.svg" alt="" width="320" height="44" loading="lazy" aria-hidden="true" />
+    <footer class:list={["footer", night && "night"]}>
+      <img class="ground" src={night ? "/art/ground-night.svg" : "/art/ground.svg"} alt="" width="320" height="44" loading="lazy" aria-hidden="true" />
       <div class="night foot-band">
         <div class="wrap foot">
           <p class="foot-name">
@@ -206,8 +207,9 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     text-decoration: underline;
   }
 
+  /* padding, not margin, so a night page's sky runs down to the ground */
   .footer {
-    margin-top: var(--s-8);
+    padding-top: var(--s-8);
   }
 
   /* the strip keeps its own proportions (320 x 44 cells) on wide screens, so nothing is cut;

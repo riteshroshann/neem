@@ -29,7 +29,7 @@
   --line-strong: #16130f;
   --neem: #1f4d33;
   --neem-deep: #163a26;
-  --leaf: #3f7d4f;
+  --leaf: #1f4d33; /* the accent as text and lines; buttons fill with --neem */
   --on-neem: #faf7f1;
 
   /* the globe's sea and night, by day; the night scope repaints them */
@@ -257,9 +257,10 @@ figcaption {
   padding-top: var(--canopy);
 }
 
-/* Night: the top and the foot of every page. The same tokens, inverted, so every component
-   inside adapts on its own; a faint field of cells for stars. */
+/* Night: the top and the foot of every page, and all of the long reads. The same tokens,
+   inverted, so every component inside adapts on its own; a faint field of cells for stars. */
 .night {
+  color-scheme: dark;
   --paper: #13100d;
   --wash: #1f1a16;
   --ink: #f4eee4;
@@ -268,6 +269,7 @@ figcaption {
   --line-strong: #f4eee4;
   --neem: #2f6d45;
   --neem-deep: #3a7f53;
+  --leaf: #7fb36a;
   --on-neem: #f4eee4;
   --globe-sea: #1d2731;
   --globe-sea-night: #151c23;
@@ -275,6 +277,11 @@ figcaption {
   --globe-air: #4f7894;
   background: var(--paper) url("/art/stars.svg") center top / 480px auto repeat;
   color: var(--ink);
+}
+
+/* a night page scrolls on a night scrollbar */
+:root:has(> body.night) {
+  color-scheme: dark;
 }
 
 .rule-light {

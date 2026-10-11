@@ -35,6 +35,8 @@ BLOSSOM = ["#f7f1de", "#ece0b5"]
 # the UTCI heat ramp, one colour per band
 HEAT = [hex_.lower() for _, hex_ in STOPS]
 CITY = ["#ddd5c8", "#d3cabb"]
+CITY_NIGHT = ["#29221c", "#3a3129"]  # the same city after dark
+WINDOW = "#e8cf9a"  # a lit window
 KID = {"skin": "#8a5a3c", "hair": "#241a14", "shirt": "#fbfaf6", "shorts": "#4b5a78"}
 
 
@@ -368,7 +370,7 @@ def tree_guard(art: Art, x: int, ground: int) -> None:
         art.put(c, ground - 4, "#b9694b")
 
 
-def ground(seed: int = 3) -> Art:
+def ground(seed: int = 3, night: bool = False) -> Art:
     cols, rows, horizon = 320, 44, 33
     rng = np.random.default_rng(seed)
     art = Art(cols, rows)
@@ -427,8 +429,17 @@ def ground(seed: int = 3) -> Art:
             for a in (-60, -36, -12, 12, 36, 60)
         ]
     ).intersection(box(255, horizon - 12, 281, horizon))
-    art.fill(unary_union(blocks), CITY[0])
-    art.fill(unary_union([minar, gate, lotus]), CITY[1])
+    city = CITY_NIGHT if night else CITY
+    art.fill(unary_union(blocks), city[0])
+    art.fill(unary_union([minar, gate, lotus]), city[1])
+    if night:  # a few windows still lit, on every other row and column of each block
+        lit, wall = np.random.default_rng(seed + 1), art.colour(city[0])
+        for b in blocks:
+            x0, y0, x1, y1 = b.bounds
+            for r in range(math.ceil(y0) + 1, math.floor(y1) - 1, 2):
+                for c in range(max(math.ceil(x0) + 1, 0), min(math.floor(x1) - 1, cols), 2):
+                    if art.grid[r, c] == wall and lit.random() < 0.16:
+                        art.put(c, r, WINDOW)
 
     # hot ground: very strong near the eye, strong toward the wall, dithered between
     bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16
@@ -528,3 +539,4 @@ if __name__ == "__main__":
     right.grid = right.grid[:, ::-1].copy()
     right.svg("neem-right.svg", "xMaxYMin meet")
     ground().svg("ground.svg", "xMidYMax slice")
+    ground(night=True).svg("ground-night.svg", "xMidYMax slice")
