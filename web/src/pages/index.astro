@@ -55,12 +55,13 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
   title="Neem"
   description={`Neem maps how hot ${stats.schools} Delhi schoolyards feel to a child on a heatwave day, and lets planners test trees and shade, square metre by square metre, before they plant.`}
 >
+  <div class="night">
   <section class="hero wrap page-head">
     <div class="hero-copy">
       <p class="kicker">{stats.schools} Delhi schoolyards, modelled for heat</p>
       <h1 class="display">
         <span>The air reached {Math.round(cell.ta)}&nbsp;°C.</span>
-        <span>The schoolyard felt like&nbsp;<em style={`color:${heatHex(cell.utci)}`}>{Math.round(cell.utci)}.</em></span>
+        <span>The schoolyard felt like&nbsp;<em style={`--cell:${heatHex(cell.utci)}`}>{Math.round(cell.utci)}.</em></span>
       </h1>
       <p class="lede">
         Neem maps the heat a child feels in {stats.schools} Delhi schoolyards, then works out,
@@ -78,6 +79,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     </div>
     <Globe />
   </section>
+  </div>
 
   <section class="wrap figures rule">
     <div>
@@ -318,6 +320,14 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     max-width: 11ch;
   }
 
+  /* 47 °C feels-like is in the extreme band, so it sits on that band's cell */
+  .hero .display em {
+    font-style: normal;
+    background: var(--cell);
+    color: #f7f1e7;
+    padding: 0 0.1em 0.04em;
+  }
+
   /* the feels-like number wears its own colour on the heat ramp, set inline from the run */
   .hero .display em {
     font-style: normal;
@@ -542,6 +552,13 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     background: var(--paper);
     box-shadow: inset 0 -1px 0 var(--ink);
     padding: var(--s-2) var(--s-3) var(--s-2) 0;
+  }
+
+  /* on phones the masthead scrolls away, so the header sticks to the very top */
+  @media (max-width: 560px) {
+    .table th {
+      top: 0;
+    }
   }
 
   .more {

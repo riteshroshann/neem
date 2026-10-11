@@ -17,10 +17,11 @@
         font-weight: 100 900;
       }
 
+      /* night, like the top of every page on the site */
       :root {
-        --paper: #faf7f1;
-        --ink: #16130f;
-        --muted: #69625a;
+        --paper: #13100d;
+        --ink: #f4eee4;
+        --muted: #b3a898;
         --heat-extreme: #8c1c30;
       }
 
@@ -34,7 +35,7 @@
         width: 1200px;
         height: 630px;
         overflow: hidden;
-        background: var(--paper);
+        background: var(--paper) url("../../web/public/art/stars.svg") center top / 480px auto repeat;
         color: var(--ink);
         -webkit-font-smoothing: antialiased;
       }
@@ -53,6 +54,13 @@
         letter-spacing: -0.01em;
       }
 
+      .credit {
+        margin-left: 14px;
+        font: 400 22px / 1 "Geist";
+        letter-spacing: 0;
+        color: var(--muted);
+      }
+
       h1 {
         margin: 0;
         font: 400 86px / 0.95 "Instrument Serif";
@@ -63,10 +71,12 @@
         display: block;
       }
 
-      /* 47 °C feels-like is in the extreme band, so it wears that colour, as on the site */
+      /* 47 °C feels-like is in the extreme band, so it sits on that band's cell, as on the site */
       h1 em {
         font-style: normal;
-        color: var(--heat-extreme);
+        background: var(--heat-extreme);
+        color: #f7f1e7;
+        padding: 0 0.1em 0.04em;
       }
 
       .line {
@@ -93,7 +103,7 @@
   </head>
   <body>
     <div class="copy">
-      <p class="wordmark">Neem</p>
+      <p class="wordmark">Neem <span class="credit">Created by Ritesh Roshan</span></p>
       <div>
         <h1>
           <span>The air</span>
@@ -116,7 +126,8 @@
         (v) => (v + 0.5) / 16 - 0.5,
       );
       const EDGES = [30, 50, 70].map((d) => Math.sin(d * RAD));
-      const COLOURS = ["#e5e9ec", "#ebe5db", "#cbc3b6", "#f1d9a7", "#e9a15a", "#d65a2e", "#8c1c30"];
+      // the night palette of the site's globe: dark sea, dark night side, the heat ramp for sun height
+      const COLOURS = ["#1d2731", "#151c23", "#3b342d", "#f1d9a7", "#e9a15a", "#d65a2e", "#8c1c30"];
       const [SEA, SEA_NIGHT, LAND_NIGHT, LAND_DAY] = [0, 1, 2, 3];
 
       function decodeLand({ cols, rows, rle }) {
@@ -183,7 +194,10 @@
             else if (!day) colour = LAND_NIGHT;
             else colour = LAND_DAY + EDGES.filter((edge) => light + d * 0.05 > edge).length;
             ctx.fillStyle = COLOURS[colour];
-            ctx.fillRect(left, top, side, side);
+            // cells shrink toward the rim, as on the site: the disc reads as a sphere
+            const s = Math.max(1, Math.round(side * (0.55 + 0.45 * z)));
+            const pad = Math.floor((side - s) / 2);
+            ctx.fillRect(left + pad, top + pad, s, s);
           }
         }
       }

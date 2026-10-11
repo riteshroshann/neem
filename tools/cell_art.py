@@ -435,7 +435,27 @@ def ground(seed: int = 3) -> Art:
     return art
 
 
+def stars(seed: int = 7, width: int = 480, height: int = 320, count: int = 70) -> None:
+    """A tile of faint square stars for the night bands; a few brighter ones in two sizes."""
+    rng = np.random.default_rng(seed)
+    cells = []
+    for _ in range(count):
+        x, y = rng.uniform(0, width - 3), rng.uniform(0, height - 3)
+        size = 3 if rng.random() < 0.15 else 2
+        alpha = rng.choice([0.14, 0.22, 0.32, 0.5], p=[0.4, 0.3, 0.2, 0.1])
+        cells.append(
+            f'<rect x="{x:.0f}" y="{y:.0f}" width="{size}" height="{size}" fill-opacity="{alpha}"/>'
+        )
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}">'
+        f'<g fill="#f4eee4">{"".join(cells)}</g></svg>'
+    )
+    (OUT / "stars.svg").write_text(svg)
+    print(f"stars.svg: {count} cells, {len(svg) / 1024:.1f} KB")
+
+
 if __name__ == "__main__":
+    stars()
     branch(seed=11).svg("neem-left.svg", "xMinYMin meet")
     right = branch(seed=23)
     right.grid = right.grid[:, ::-1].copy()

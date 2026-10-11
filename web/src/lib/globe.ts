@@ -22,12 +22,23 @@ const SLOP = 4;
 // in the heat ramp's moderate to extreme colours.
 export const SUN_BANDS = [30, 50, 70] as const;
 export const BAND_COLOURS = STOPS.slice(1, 5).map((s) => s.hex);
-const COLOURS = [
-  "#e5e9ec", // sea in daylight
-  "#ebe5db", // sea at night
-  "#cbc3b6", // land at night
-  ...BAND_COLOURS,
-];
+// sea in daylight, sea at night, land at night: from CSS, so the globe matches day or night bands
+function surfaceColours(el: Element): string[] {
+  const css = getComputedStyle(el);
+  const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+  return [
+    read("--globe-sea", "#e5e9ec"),
+    read("--globe-sea-night", "#ebe5db"),
+    read("--globe-land-night", "#cbc3b6"),
+    ...BAND_COLOURS,
+    read("--globe-air", "#c9d8e3"),
+  ];
+}
+
+// The disc fills 90% of the canvas; the ring beyond it is the atmosphere, drawn in cells that
+// thin out with height, the way the air looks from orbit.
+const RADIUS = 0.9;
+const AIR = 0.08;
 const SEA = 0;
 const SEA_NIGHT = 1;
 const LAND_NIGHT = 2;
@@ -86,8 +97,11 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
   let cells = new Float32Array(0); // sx, sy, z per visible cell
   let dither = new Float32Array(0);
   let slots = new Uint16Array(0); // grid column and row per visible cell
+  let air: number[] = []; // column, row, closeness to the limb (1 at the limb, 0 at the top)
   let frame = 0;
   let settled = !opts.intro;
+
+  const colours = surfaceColours(canvas);
 
   function layout() {
     dpr = window.devicePixelRatio || 1;
@@ -102,14 +116,20 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     const xs: number[] = [];
     const ds: number[] = [];
     const ss: number[] = [];
+    air = [];
     for (let j = 0; j < n; j++) {
       for (let i = 0; i < n; i++) {
-        const sx = ((i + 0.5) / n) * 2 - 1;
-        const sy = ((j + 0.5) / n) * 2 - 1;
-        const r2 = sx * sx + sy * sy;
-        if (r2 > 1) continue;
-        xs.push(sx, sy, Math.sqrt(1 - r2));
-        ds.push(BAYER[(i & 3) + ((j & 3) << 2)] ?? 0);
+        const sx = (((i + 0.5) / n) * 2 - 1) / RADIUS;
+        const sy = (((j + 0.5) / n) * 2 - 1) / RADIUS;
+        const r = Math.hypot(sx, sy);
+        const threshold = BAYER[(i & 3) + ((j & 3) << 2)] ?? 0;
+        if (r > 1) {
+          const t = 1 - (r - 1) / (AIR / RADIUS);
+          if (t > 0 && t + threshold * 0.9 > 0.62) air.push(i, j, t);
+          continue;
+        }
+        xs.push(sx, sy, Math.sqrt(1 - r * r));
+        ds.push(threshold);
         ss.push(i, j);
       }
     }
@@ -133,7 +153,7 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     frame = 0;
     if (!ctx) return;
     const { c, e, u } = basis();
-    const buckets: number[][] = COLOURS.map(() => []);
+    const buckets: number[][] = colours.map(() => []);
     const { cols, rows } = LAND;
     for (let k = 0, m = cells.length / 3; k < m; k++) {
       const sx = cells[k * 3] as number;
@@ -161,7 +181,7 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const side = cellPx - gap;
     buckets.forEach((ks, colour) => {
-      ctx.fillStyle = COLOURS[colour] as string;
+      ctx.fillStyle = colours[colour] as string;
       for (const k of ks) {
         // cells shrink toward the rim, like a halftone: the disc reads as a sphere, no gradient
         const s = Math.max(1, Math.round(side * (0.55 + 0.45 * (cells[k * 3 + 2] as number))));
@@ -174,6 +194,17 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
         );
       }
     });
+    ctx.fillStyle = colours[colours.length - 1] as string;
+    for (let k = 0; k < air.length; k += 3) {
+      const s = Math.max(1, Math.round(side * (0.3 + 0.45 * (air[k + 2] as number))));
+      const pad = Math.floor((side - s) / 2);
+      ctx.fillRect(
+        offset + (air[k] as number) * cellPx + pad,
+        offset + (air[k + 1] as number) * cellPx + pad,
+        s,
+        s,
+      );
+    }
   }
 
   const request = () => {
@@ -262,7 +293,7 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
       press.cam = [...camera];
       setSettled(false);
     }
-    const k = 180 / Math.PI / (canvas.clientWidth / 2);
+    const k = 180 / Math.PI / ((canvas.clientWidth / 2) * RADIUS);
     camera = [Math.max(-70, Math.min(70, press.cam[0] + dy * k)), press.cam[1] - dx * k];
     request();
   };
@@ -289,8 +320,8 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
       const sy = p[0] * (u[0] as number) + p[1] * (u[1] as number) + p[2] * (u[2] as number);
       const half = (n * cellPx) / 2;
       return {
-        x: (offset + half + sx * half) / dpr,
-        y: (offset + half - sy * half) / dpr,
+        x: (offset + half + sx * half * RADIUS) / dpr,
+        y: (offset + half - sy * half * RADIUS) / dpr,
       };
     },
     destroy() {

@@ -30,6 +30,13 @@
   --neem: #1f4d33;
   --neem-deep: #163a26;
   --leaf: #3f7d4f;
+  --on-neem: #faf7f1;
+
+  /* the globe's sea and night, by day; the night scope repaints them */
+  --globe-sea: #e5e9ec;
+  --globe-sea-night: #ebe5db;
+  --globe-land-night: #cbc3b6;
+  --globe-air: #c9d8e3;
 
   /* UTCI heat-stress bands, mirrored from neem_core/palette.py */
   --heat-none: #e9edf0;
@@ -250,6 +257,26 @@ figcaption {
   padding-top: var(--canopy);
 }
 
+/* Night: the top and the foot of every page. The same tokens, inverted, so every component
+   inside adapts on its own; a faint field of cells for stars. */
+.night {
+  --paper: #13100d;
+  --wash: #1f1a16;
+  --ink: #f4eee4;
+  --muted: #b3a898;
+  --line: #3a322a;
+  --line-strong: #f4eee4;
+  --neem: #2f6d45;
+  --neem-deep: #3a7f53;
+  --on-neem: #f4eee4;
+  --globe-sea: #1d2731;
+  --globe-sea-night: #151c23;
+  --globe-land-night: #3b342d;
+  --globe-air: #4f7894;
+  background: var(--paper) url("/art/stars.svg") center top / 480px auto repeat;
+  color: var(--ink);
+}
+
 .rule-light {
   border-top: 1px solid var(--line);
 }
@@ -268,7 +295,7 @@ figcaption {
   border: 1px solid var(--neem);
   border-radius: 0;
   background: var(--neem);
-  color: var(--paper);
+  color: var(--on-neem);
   font: 500 var(--t-s) / 1 var(--sans);
   text-decoration: none;
   cursor: pointer;
