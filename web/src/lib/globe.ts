@@ -88,10 +88,11 @@ export interface GlobeOptions {
 
 export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Globe {
   const land = decodeLand();
-  let sun = unit(opts.sun);
+  const sun = unit(opts.sun);
   const ctx = canvas.getContext("2d");
-  // how far the Earth has turned under the sun, in degrees; the camera turns with the sun, so
-  // the lit side stays put on screen while the land slides west to east beneath it
+  // how far the camera has circled west, in degrees: the land turns east the way the real Earth
+  // does, while the sun stays where it stood at the model's hour, so the hottest cells stay
+  // over India and the night side comes round in its turn
   let turned = 0;
   let camera: [number, number] = [...(opts.intro ? (opts.from ?? [8, -18]) : opts.focus)];
   let dpr = 1; // pixel ratio of the last layout; offset, cellPx and n are in its device px
@@ -159,7 +160,6 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     frame = 0;
     if (!ctx) return;
     const { c, e, u } = basis();
-    sun = unit([opts.sun[0], opts.sun[1] - turned]);
     const buckets: number[][] = colours.map(() => []);
     const { cols, rows } = LAND;
     for (let k = 0, m = cells.length / 3; k < m; k++) {

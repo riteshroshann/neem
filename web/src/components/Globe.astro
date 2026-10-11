@@ -31,12 +31,12 @@ const bands = [
 ].map((label, i) => ({ label, hex: BAND_COLOURS[i] }));
 ---
 
-<figure class="globe" data-globe data-sun={JSON.stringify(sun.subsolar)} data-site={JSON.stringify(sun.site)} data-spin={spin ? "8" : "0"}>
+<figure class="globe" data-globe data-sun={JSON.stringify(sun.subsolar)} data-site={JSON.stringify(sun.site)} data-spin={spin ? "6" : "0"}>
   <div class="globe-stage">
     <canvas
       role="img"
       aria-label={spin
-        ? `The Earth turning under the sun, each place coloured by how high the sun stands over it. At the model's ${hour} hour in Delhi on ${date} it was straight overhead at ${overhead}, and ${altitude}° above the schoolyard.`
+        ? `The Earth at the model's ${hour} hour in Delhi on ${date}, turning slowly, each place coloured by how high the sun stood over it: straight overhead at ${overhead}, and ${altitude}° above the schoolyard.`
         : `The Earth on ${date}, coloured by the height of the sun the model used for the ${hour} hour in Delhi, where it stood at ${sun.at}. It is straight overhead at ${overhead}, and ${altitude}° above the schoolyard in Delhi.`}
     ></canvas>
     {!spin && (
