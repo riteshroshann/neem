@@ -22,20 +22,9 @@ export interface Stage {
 
 export const STAGES: Stage[] = future.stages;
 export const TREES: number = future.trees;
-export const SCHOOL_ID: string = future.school_id;
 
 const first = STAGES[0];
 const last = STAGES[STAGES.length - 1];
 if (!first || !last || first.years !== 0) throw new Error("future.json needs a year-0 stage");
 export const TODAY: Stage = first;
 export const GROWN: Stage = last;
-
-/** The last modelled stage at or before `years`. */
-export function stageAt(years: number): Stage {
-  let found = TODAY;
-  for (const s of STAGES) if (s.years <= years) found = s;
-  return found;
-}
-
-/** How much cooler the yard is than today, °C (positive is cooler). */
-export const coolerBy = (s: Stage) => TODAY.yard_1pm - s.yard_1pm;

@@ -50,7 +50,7 @@ Then it grows the plan. The same 85 trees at 1, 5, 10, 20 and 30 years, each a f
 ## Run it
 
 ```sh
-uv sync && just check            # Python: lint, types, 63 tests
+uv sync && just check            # Python: lint, types, 64 tests
 cd web && bun install && bun run dev
 uv run neem-api                  # physics API on :8000
 ```

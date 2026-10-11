@@ -5,8 +5,8 @@ interface Props {
   title: string;
   description: string;
   path?: string;
-  /** The night sky behind the whole page, or behind only its last sections; the foot follows. */
-  night?: "page" | "end";
+  /** The night sky behind the whole page, foot included. */
+  night?: boolean;
 }
 
 const { title, description, path = "/", night } = Astro.props;
@@ -40,7 +40,7 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     <link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin />
     <slot name="head" />
   </head>
-  <body class={night === "page" ? "night" : undefined}>
+  <body class={night ? "night" : undefined}>
     <a class="skip visually-hidden" href="#main">Skip to content</a>
     <div class="guides" aria-hidden="true"></div>
     <header class="masthead night">

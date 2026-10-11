@@ -58,7 +58,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
 <Base
   title="Neem"
   description={`Neem maps how hot ${stats.schools} Delhi schoolyards feel to a child on a heatwave day, and lets planners test trees and shade, square metre by square metre, before they plant.`}
-  night="page"
+  night
 >
   <section class="hero wrap page-head">
     <div class="hero-copy">
@@ -74,9 +74,11 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
       <div class="actions">
         <a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a>
         <a class="button quiet" href="#map">See all {stats.schools} yards</a>
-        <a class="story-link" href="/story">Read the story</a>
-        <a class="story-link" href="#future">Ride thirty years forward</a>
       </div>
+      <p class="hero-links">
+        <a href="#future">Ride thirty years forward <span aria-hidden="true">↓</span></a>
+        <a href="/story">Read the story</a>
+      </p>
       <p class="xs muted hero-note">
         {temp(cell.utci)} feels-like (UTCI) at 1&nbsp;pm on {longDate(showcase.day)}, at the centre
         of the open yard of {showcase.name}: a 1&nbsp;m SOLWEIG run. Air {temp(cell.ta)}, from ERA5.
@@ -213,7 +215,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     <table class="table num">
       <thead>
         <tr>
-          <th scope="col">Rank</th>
+          <th scope="col">City rank</th>
           <th scope="col"><span class="visually-hidden">Heat map</span></th>
           <th scope="col">School</th>
           <th scope="col" class="r">Yard heat</th>
@@ -327,7 +329,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     max-width: 11ch;
   }
 
-  /* 47 °C feels-like is in the extreme band, so it sits on that band's cell */
+  /* the feels-like number wears its own colour on the heat ramp, set inline from the run */
   .hero .display em {
     font-style: normal;
     background: var(--cell);
@@ -335,16 +337,18 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     padding: 0 0.1em 0.04em;
   }
 
-  /* the feels-like number wears its own colour on the heat ramp, set inline from the run */
-  .hero .display em {
-    font-style: normal;
-  }
-
   .actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--s-3);
     margin-top: var(--s-2);
+  }
+
+  .hero-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+    font-size: var(--t-s);
   }
 
   .hero-note {
@@ -365,12 +369,6 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
 
   .figures .small {
     max-width: 34ch;
-  }
-
-  .story-link {
-    align-self: center;
-    margin-left: var(--s-2);
-    font-size: var(--t-s);
   }
 
   .map-section {
@@ -615,6 +613,7 @@ const medianAt = ((stats.utci_median - stats.utci_min) / (stats.utci_max - stats
     }
     .lede,
     .actions,
+    .hero-links,
     .hero-note {
       order: 3;
     }

@@ -10,7 +10,7 @@ On Monday 27 April 2026, the hottest school day before Delhi's summer vacation, 
 
 Neem shows how hot a schoolyard feels to a child on a heatwave day, and what trees and shade would change, before anyone digs. It ranks 766 Delhi schoolyards by heat, from SOLWEIG runs at 2 m for 9 am, 11 am and 1 pm. Four government schools near Delhi Technological University (DTU) have full heat twins at 1 m, hour by hour from 7 am to 1 pm, each with a child body model and a browser planner for trees and shade sails. A planning agent proposes a plan within a budget, and SOLWEIG verifies it.
 
-The home page opens on an Earth drawn in square cells and lit by the sun exactly as the model used it for the 1 pm hour (12:30 IST, from the repository's NOAA solar code): straight overhead just off the Karnataka coast, 75° above the yard in Rohini. It zooms from Delhi to one yard, one square metre and one child, then a slider compares SOLWEIG's maps of that yard before and after the agent's 85 neems. A long-form story at [/story](https://neem-lemon.vercel.app/story) walks through all of it with live figures.
+The home page opens on an Earth drawn in square cells and lit by the sun exactly as the model used it for the 1 pm hour (12:30 IST, from the repository's NOAA solar code): straight overhead just off the Karnataka coast, 75° above the yard in Rohini. Right under it, "The long shade" grows the agent's 85 neems at Kendriya Vidyalaya through 1, 5, 10, 20 and 30 years. Each age is a full SOLWEIG and child-twin run on the same heatwave day, so the trees are the only change, and a 3D film of the yard scrubs with the scroll beside each year's numbers. The page then zooms from Delhi to one yard, one square metre and one child, and a slider compares SOLWEIG's maps of that yard before and after the plan. A long-form story at [/story](https://neem-lemon.vercel.app/story) walks through all of it with live figures.
 
 ## How it works
 
@@ -22,7 +22,7 @@ The child is JOS-3, a 17-segment thermoregulation model scaled to a nine-year-ol
 
 The planner is a Strands agent on qwen3 4B, served by Ollama on the laptop. The model picks how many trees, which species and whether a sail is worth it; its tools choose where, enforce the budget, preview and verify, so every figure in its answer comes from a tool.
 
-Verification has two tiers. The browser preview recasts shadows and predicts the change from the physics run in about 10 ms. Untouched squares keep SOLWEIG's value; where a design acts, the preview can be off by about 4 to 5 °C at midday, and the page says by how much. "Verify with physics" re-runs SOLWEIG and the child's day on a worker. Tests pin the tiers together: the shadow caster matches SOLWEIG on more than 97% of cells, and the preview's mean error against SOLWEIG stays under 1 °C on a design it has never seen. All 63 fast and 4 slow SOLWEIG tests in Python and 15 TypeScript tests pass.
+Verification has two tiers. The browser preview recasts shadows and predicts the change from the physics run in about 10 ms. Untouched squares keep SOLWEIG's value; where a design acts, the preview can be off by about 4 to 5 °C at midday, and the page says by how much. "Verify with physics" re-runs SOLWEIG and the child's day on a worker. Tests pin the tiers together: the shadow caster matches SOLWEIG on more than 97% of cells, and the preview's mean error against SOLWEIG stays under 1 °C on a design it has never seen. All 64 fast and 4 slow SOLWEIG tests in Python and 18 TypeScript tests pass.
 
 The architecture is a lake of plain files on S3, queried in place with DuckDB, plus a FastAPI service, an SQS worker and job state in DynamoDB. AWS sits behind ports whose boto3 adapters take an endpoint URL, so the same code runs against LocalStack. The public site is static Astro on Vercel.
 
@@ -50,6 +50,8 @@ The agent planned each twin within ₹3,00,000, and SOLWEIG verified every plan:
 | Rani Chenamma Sarvodaya Kanya Vidyalaya | 85 neems | ₹2,97,500 | 45.6 → 44.2 °C | 0.86 → 0.78 °C | 852 → 829 ml |
 
 At 1 pm, the same 85 neems take 3.1 °C off the School of Specialised Excellence, with 5,691 m² of open ground, and 1.8 °C off Kendriya Vidyalaya, with 11,397 m². MCD Primary had room for only 62 neems, so the agent added a sail. The preview's 1 pm yard mean landed within 0.6 °C of SOLWEIG in all four plans, and the new `neem-data verify-plan` command re-ran every stored plan through SOLWEIG and reproduced every number exactly.
+
+Then `neem-data grow` re-ran the Kendriya Vidyalaya plan with its trees at 1, 5, 10, 20 and 30 years of growth (sizes by age are our assumption, inside published ranges for neem). Year one changes nothing: 2 m saplings leave the yard at 46.6 °C. By year five it leaves extreme heat stress at 44.8 °C, with 57% of the morning in shade against 22% today. By year thirty the crowns cover 5,861 m² and the ground under them feels like 42.1 °C at 1 pm, where the same squares are 47.2 °C today.
 
 ## Open data and licences
 

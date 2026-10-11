@@ -59,7 +59,7 @@ const beats: Record<number, { title: string; text: string }> = {
   </header>
 
   <div class="ride-screen">
-    <div class="wrap ride-track" data-ride={STAGES.map((s) => s.years).join(",")}>
+    <div class="wrap ride-track" data-ride={STAGES.map((s) => s.years).join(",")} style={`--years:${STAGES.length}`}>
       <div class="ride-clock" aria-hidden="true">
         <p class="kicker">Years after planting</p>
         <p class="ride-n num" data-year>0</p>
@@ -76,25 +76,41 @@ const beats: Record<number, { title: string; text: string }> = {
       </div>
 
       <div class="ride-stage" aria-hidden="true">
-        <div class:list={["ride-film", { flat: !FILM }]}>
-          {STAGES.map((s, i) => (
-            <img
-              class:list={["ride-poster", { shown: i === 0, flat: !FILM }]}
-              src={FILM ? `/media/future-y${s.years}.jpg` : s.map}
-              alt=""
-              width={FILM ? 1280 : 233}
-              height={FILM ? 800 : 260}
-              loading="lazy"
-              decoding="async"
-            />
-          ))}
+        <div class="ride-plate">
+          <div class:list={["ride-film", { flat: !FILM }]}>
+            {STAGES.map((s, i) => (
+              <img
+                class:list={["ride-poster", { shown: i === 0, flat: !FILM }]}
+                src={FILM ? `/media/future-y${s.years}.jpg` : s.map}
+                alt=""
+                width={FILM ? 1280 : 233}
+                height={FILM ? 800 : 260}
+                loading="lazy"
+                decoding="async"
+              />
+            ))}
+            {FILM && (
+              <video class="ride-video" muted playsinline preload="none" width="1280" height="800">
+                <source src="/media/future-ride.webm" type="video/webm" />
+                <source src="/media/future-ride.mp4" type="video/mp4" />
+              </video>
+            )}
+          </div>
           {FILM && (
-            <video class="ride-video" muted playsinline preload="none" width="1280" height="800">
-              <source src="/media/future-ride.webm" type="video/webm" />
-              <source src="/media/future-ride.mp4" type="video/mp4" />
-            </video>
+            <figure class="ride-inset">
+              <div class="ride-inset-maps">
+                {STAGES.map((s, i) => (
+                  <img class:list={["ride-inset-map", { shown: i === 0 }]} src={s.map} alt="" width="233" height="260" loading="lazy" decoding="async" />
+                ))}
+              </div>
+              <figcaption class="xs">SOLWEIG, 1 m</figcaption>
+            </figure>
           )}
+          <span class="ride-marks"></span>
         </div>
+        <p class="ride-caption xs">
+          {name} at 1 pm. The ground is coloured by each year's SOLWEIG feels-like map.
+        </p>
       </div>
 
       <ol class="ride-beats">
@@ -114,49 +130,54 @@ const beats: Record<number, { title: string; text: string }> = {
             <div class="ride-mini" aria-hidden="true">
               {RAIL.map((y) => <i class:list={{ on: y <= s.years }}></i>)}
             </div>
-            <p class="kicker">{s.years ? `Year ${s.years}` : "Today"}</p>
-            <h3 class="ride-h">{beats[s.years]?.title}</h3>
-            <p class="ride-text">{beats[s.years]?.text}</p>
-            <div class="ride-run">
-              <figure class="ride-map">
-                <img src={s.map} alt={`SOLWEIG feels-like map of the yard at 1 pm, ${s.years ? `year ${s.years}` : "today"}`} width="96" height="107" loading="lazy" />
-                <figcaption class="xs muted">SOLWEIG, {s.years ? `year ${s.years}` : "today"}</figcaption>
-              </figure>
-              <dl class="ride-readout num">
-                <div>
-                  <dt>Yard at 1 pm</dt>
-                  <dd>
-                    <span class="heat" style={`--cell:${heatHex(s.yard_1pm)}`}>{temp(s.yard_1pm)}</span>
-                    <span class="band">{band(s.yard_1pm)}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Her morning</dt>
-                  <dd>{rise(s.child_rise)}<span class="band">{ml(s.water_ml)} of water lost</span></dd>
-                </div>
-                <div class="wide">
-                  <dt>In shade, {pct(s.shade)} of the morning</dt>
-                  <dd class="waffle" aria-hidden="true">
-                    {Array.from({ length: 100 }, (_, k) => <i class:list={{ on: k < Math.round(s.shade * 100) }}></i>)}
-                  </dd>
-                </div>
-                {s.under_crowns_1pm !== undefined && s.under_crowns_today !== undefined && (
-                  <div class="wide">
-                    <dt>Under the new crowns at 1 pm</dt>
-                    <dd class="pair">
-                      <span class="heat" style={`--cell:${heatHex(s.under_crowns_today)}`}>{temp(s.under_crowns_today)}</span>
-                      <span class="band">today</span>
-                      <span class="to" aria-hidden="true">→</span>
-                      <span class="heat" style={`--cell:${heatHex(s.under_crowns_1pm)}`}>{temp(s.under_crowns_1pm)}</span>
-                      <span class="band">year {s.years}</span>
+            <div class="ride-card">
+              <p class="kicker">{s.years ? `Year ${s.years}` : "Today"}</p>
+              <h3 class="ride-h">{beats[s.years]?.title}</h3>
+              <p class="ride-text">{beats[s.years]?.text}</p>
+              <div class="ride-run">
+                {!FILM && (
+                  <figure class="ride-map">
+                    <img src={s.map} alt={`SOLWEIG feels-like map of the yard at 1 pm, ${s.years ? `year ${s.years}` : "today"}`} width="96" height="107" loading="lazy" />
+                    <figcaption class="xs muted">SOLWEIG, {s.years ? `year ${s.years}` : "today"}</figcaption>
+                  </figure>
+                )}
+                <dl class="ride-readout num">
+                  <div>
+                    <dt>Yard at 1 pm</dt>
+                    <dd>
+                      <span class="heat" style={`--cell:${heatHex(s.yard_1pm)}`}>{temp(s.yard_1pm)}</span>
+                      <span class="band">{band(s.yard_1pm)}</span>
                     </dd>
                   </div>
-                )}
-              </dl>
+                  <div>
+                    <dt>Her morning</dt>
+                    <dd>{rise(s.child_rise)}<span class="band">{ml(s.water_ml)} of water lost</span></dd>
+                  </div>
+                  <div class="wide">
+                    <dt>In shade, {pct(s.shade)} of the morning</dt>
+                    <dd class="waffle" aria-hidden="true">
+                      {Array.from({ length: 100 }, (_, k) => <i class:list={{ on: k < Math.round(s.shade * 100) }}></i>)}
+                    </dd>
+                  </div>
+                  {s.under_crowns_1pm !== undefined && s.under_crowns_today !== undefined && (
+                    <div class="wide">
+                      <dt>Under the new crowns at 1 pm</dt>
+                      <dd class="pair">
+                        <span class="heat" style={`--cell:${heatHex(s.under_crowns_today)}`}>{temp(s.under_crowns_today)}</span>
+                        <span class="band">today</span>
+                        <span class="to" aria-hidden="true">→</span>
+                        <span class="heat" style={`--cell:${heatHex(s.under_crowns_1pm)}`}>{temp(s.under_crowns_1pm)}</span>
+                        <span class="band">year {s.years}</span>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </div>
             </div>
           </li>
         ))}
       </ol>
+      <div class="ride-spacer" aria-hidden="true"></div>
 
       <p class="ride-cut" data-cut>She is still nine.</p>
     </div>
@@ -303,15 +324,20 @@ const beats: Record<number, { title: string; text: string }> = {
 
   const MASTHEAD = 57;
   const HOLD = 0.22; // share of each gap, either side of a year's card, that the film rests on it
+  const GONE = 0.45; // a card has faded out by this share of a gap from its rest
   const live = window.matchMedia("(min-width: 1000px) and (prefers-reduced-motion: no-preference)");
 
   for (const track of document.querySelectorAll<HTMLElement>("[data-ride]")) {
     const screen = track.parentElement as HTMLElement;
     const video = track.querySelector("video");
     const posters = Array.from(track.querySelectorAll<HTMLImageElement>(".ride-poster"));
+    const maps = Array.from(track.querySelectorAll<HTMLImageElement>(".ride-inset-map"));
     const beats = Array.from(track.querySelectorAll<HTMLElement>(".ride-beat"));
+    const spacer = track.querySelector(".ride-spacer") as HTMLElement;
     const cut = track.querySelector("[data-cut]") as HTMLElement;
     const clock = track.querySelector(".ride-clock") as HTMLElement;
+    const stage = track.querySelector(".ride-stage") as HTMLElement;
+    const plate = track.querySelector(".ride-plate") as HTMLElement;
     const yearEl = track.querySelector("[data-year]") as HTMLElement;
     const cells = Array.from(track.querySelectorAll<HTMLElement>(".ride-rail i"));
     const runs = (track.dataset.ride ?? "0").split(",").map(Number);
@@ -322,16 +348,20 @@ const beats: Record<number, { title: string; text: string }> = {
     let target = -1;
     let queued = false;
     let centres: number[] = [];
+    let gap = 1;
     let cutAt = Number.POSITIVE_INFINITY;
 
-    // where each year's card and the cut sit in the page
+    // the spacer is the ride's length: each year gets an equal stretch of it, and its middle is
+    // where the film rests on that year. The cards pin as one stack under the clock, or level
+    // with the top of the plate when a tall screen centres the plate lower than that
     const measure = () => {
-      const mid = (el: HTMLElement) => {
-        const box = el.getBoundingClientRect();
-        return box.top + window.scrollY + box.height / 2;
-      };
-      centres = beats.map(mid);
+      const run = spacer.getBoundingClientRect();
+      gap = Math.max(1, run.height / beats.length);
+      centres = beats.map((_, k) => run.top + window.scrollY + (k + 0.5) * gap);
       cutAt = cut.getBoundingClientRect().top + window.scrollY;
+      const underClock = MASTHEAD + clock.offsetHeight + 32;
+      const plateTop = MASTHEAD + plate.getBoundingClientRect().top - stage.getBoundingClientRect().top;
+      track.style.setProperty("--card-top", `${Math.max(underClock, plateTop)}px`);
     };
 
     // the run we are at or past, and how far toward the next (0 to 1); the film rests on each
@@ -376,14 +406,25 @@ const beats: Record<number, { title: string; text: string }> = {
       }
       const whole = Math.floor(year + 1e-6);
       yearEl.textContent = String(whole);
+      // the numeral dims while the years run between two runs and lights up on each one
+      yearEl.classList.toggle("travel", t > 0 && t < 1);
       for (const cell of cells) {
         const y = Number(cell.dataset.y);
         cell.classList.toggle("on", y <= whole);
         cell.classList.toggle("now", y === whole);
       }
       const nearest = t < 0.5 ? i : Math.min(i + 1, posters.length - 1);
-      posters.forEach((p, k) => {
-        p.classList.toggle("shown", k === nearest);
+      for (const set of [posters, maps]) {
+        set.forEach((p, k) => {
+          p.classList.toggle("shown", k === nearest);
+        });
+      }
+      // only the year the film rests on has its card up: full while it rests, gone halfway
+      beats.forEach((beat, k) => {
+        const d = Math.abs((centres[k] ?? 0) - line) / gap;
+        const focus = Math.min(1, Math.max(0, (GONE - d) / (GONE - HOLD)));
+        beat.style.setProperty("--focus", focus.toFixed(3));
+        beat.classList.toggle("off", focus === 0);
       });
       screen.style.setProperty("--cool", (year / last).toFixed(3));
     };
@@ -479,7 +520,8 @@ const beats: Record<number, { title: string; text: string }> = {
   .ride-screen {
     --cool: 0;
     --screen: color-mix(in oklab, #13100d, #0a1510 calc(var(--cool) * 100%));
-    background: var(--screen);
+    /* the stars come back under the last line */
+    background: linear-gradient(var(--screen) calc(100% - 45svh), transparent);
   }
 
   .ride-clock,
@@ -487,25 +529,44 @@ const beats: Record<number, { title: string; text: string }> = {
     display: none;
   }
 
+  /* without the ride (phones, less motion) the years are a contact sheet of cards */
   .ride-beats {
     list-style: none;
     margin: 0;
     padding: var(--s-6) 0 0;
     display: grid;
-    gap: var(--s-8);
+    gap: var(--s-8) var(--s-6);
   }
 
-  .ride-beat {
+  @media (min-width: 720px) {
+    .ride-beats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (min-width: 1100px) {
+    .ride-beats {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  .ride-beat,
+  .ride-card {
     display: grid;
     gap: var(--s-3);
-    max-width: 40rem;
+    align-content: start;
     min-width: 0;
+  }
+
+  .ride-spacer {
+    display: none;
   }
 
   .ride-still {
     width: 100%;
     height: auto;
     background: #13100d;
+    box-shadow: 0 0 0 1px var(--line);
   }
 
   .ride-mini {
@@ -575,8 +636,9 @@ const beats: Record<number, { title: string; text: string }> = {
   /* the morning as 100 squares, one per hundredth of the yard-hours, filled where shaded */
   .waffle {
     display: grid;
-    grid-template-columns: repeat(20, 7px);
+    grid-template-columns: repeat(20, minmax(0, 1fr));
     gap: 2px;
+    max-width: 178px;
     margin-top: var(--s-2);
   }
 
@@ -662,6 +724,7 @@ const beats: Record<number, { title: string; text: string }> = {
     .live .ride-stage {
       display: grid;
       align-content: center;
+      gap: var(--s-4);
       grid-column: 2;
       grid-row: 1 / span 2;
       position: sticky;
@@ -669,21 +732,45 @@ const beats: Record<number, { title: string; text: string }> = {
       height: calc(100svh - 57px);
     }
 
+    /* the cards pin as one stack under the clock while the spacer beside them gives each year
+       two thirds of a screen of scroll; only the year the film rests on shows, so nothing
+       half-read ever slides about */
     .live .ride-beats {
       grid-column: 1;
       grid-row: 2;
+      align-self: start;
+      position: sticky;
+      top: var(--card-top, calc(57px + 17rem));
+      grid-template-columns: minmax(0, 1fr);
       gap: 0;
       padding: 0;
     }
 
     .live .ride-beat {
-      min-height: calc(92svh - 57px);
-      align-content: center;
-      padding-block: var(--s-7);
+      grid-area: 1 / 1;
+      opacity: var(--focus, 0);
     }
 
+    .live .ride-beat.off {
+      visibility: hidden;
+    }
+
+    .live .ride-spacer {
+      display: block;
+      grid-column: 1;
+      grid-row: 2;
+      height: calc(var(--years) * 66svh);
+    }
+
+    .live .ride-readout .wide {
+      grid-column: auto;
+    }
+
+    /* the clock already says which year; the card's own label and map move to the stage */
     .live .ride-still,
-    .live .ride-mini {
+    .live .ride-mini,
+    .live .ride-card > .kicker,
+    .live .ride-map {
       display: none;
     }
 
@@ -705,8 +792,13 @@ const beats: Record<number, { title: string; text: string }> = {
 
   .ride-n {
     margin: 0;
-    font: 400 clamp(5rem, 10vw, 9rem) / 0.85 var(--serif);
+    font: 400 clamp(4rem, min(10vw, 14svh), 9rem) / 0.85 var(--serif);
     letter-spacing: -0.03em;
+    transition: opacity 0.3s;
+  }
+
+  .ride-n.travel {
+    opacity: 0.55;
   }
 
   .ride-rail {
@@ -741,10 +833,79 @@ const beats: Record<number, { title: string; text: string }> = {
     transform: translateX(-50%);
   }
 
+  /* the film as a plate: a neatline, registration marks at its corners like the page's frame, and
+     each year's flat SOLWEIG map pinned in its corner */
+  .ride-plate {
+    position: relative;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+
+  .ride-marks {
+    --m: linear-gradient(var(--ink), var(--ink));
+    position: absolute;
+    inset: -6px;
+    pointer-events: none;
+    background:
+      var(--m) left 5px top 0 / 1px 11px no-repeat,
+      var(--m) left 0 top 5px / 11px 1px no-repeat,
+      var(--m) right 5px top 0 / 1px 11px no-repeat,
+      var(--m) right 0 top 5px / 11px 1px no-repeat,
+      var(--m) left 5px bottom 0 / 1px 11px no-repeat,
+      var(--m) left 0 bottom 5px / 11px 1px no-repeat,
+      var(--m) right 5px bottom 0 / 1px 11px no-repeat,
+      var(--m) right 0 bottom 5px / 11px 1px no-repeat;
+  }
+
   .ride-film {
     position: relative;
     aspect-ratio: 16 / 10;
     overflow: hidden;
+    /* the film's own black melts into the screen as the screen cools */
+    mask-image:
+      linear-gradient(to right, transparent, #000 5%, #000 95%, transparent),
+      linear-gradient(transparent, #000 6%, #000 94%, transparent);
+    mask-composite: intersect;
+  }
+
+  .ride-inset {
+    position: absolute;
+    top: var(--s-4);
+    right: var(--s-4);
+    margin: 0;
+    display: grid;
+    gap: 6px;
+    justify-items: end;
+  }
+
+  .ride-inset-maps {
+    position: relative;
+    width: clamp(56px, 6vw, 84px);
+    aspect-ratio: 233 / 260;
+    background: #13100d;
+    box-shadow: 0 0 0 1px var(--line);
+  }
+
+  .ride-inset-map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    opacity: 0;
+  }
+
+  .ride-inset-map.shown {
+    opacity: 1;
+  }
+
+  .ride-inset figcaption {
+    padding: 1px 5px;
+    background: #13100d;
+    color: var(--muted);
+  }
+
+  .ride-caption {
+    color: var(--muted);
   }
 
   .ride-poster,
@@ -765,7 +926,7 @@ const beats: Record<number, { title: string; text: string }> = {
   /* a flat map is taller than the film: give it the screen's height instead of 16:10 */
   .ride-film.flat {
     aspect-ratio: auto;
-    height: calc(100svh - 57px - 2 * var(--s-7));
+    height: calc(100svh - 57px - 2 * var(--s-8));
   }
 
   .ride-poster.shown,
@@ -791,8 +952,6 @@ const beats: Record<number, { title: string; text: string }> = {
     display: flex;
     align-items: end;
     gap: var(--s-5);
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
     border-bottom: 1px solid var(--line);
   }
 
@@ -801,14 +960,12 @@ const beats: Record<number, { title: string; text: string }> = {
     gap: var(--s-2);
     justify-items: center;
     flex: none;
-    scroll-snap-align: start;
   }
 
-  /* the six drawings are 560 cells wide side by side and 130 tall: fit the row to the column,
-     and let phones swipe it */
+  /* the six drawings are 560 cells wide side by side and 130 tall: fit the row to the column */
   .ride-trees img {
     height: clamp(
-      140px,
+      100px,
       (min(100vw, var(--page)) - 2 * var(--gutter) - 5 * var(--s-5)) * 130 / 560,
       260px
     );
@@ -818,6 +975,21 @@ const beats: Record<number, { title: string; text: string }> = {
 
   .ride-trees span {
     color: var(--muted);
+    text-align: center;
+  }
+
+  /* phones: two rows of three, still one scale, sized so the widest drawing (140 cells) fills
+     its third */
+  @media (max-width: 639px) {
+    .ride-trees {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--s-6) var(--s-3);
+      overflow: visible;
+    }
+    .ride-trees img {
+      height: calc((100vw - 2 * var(--gutter) - 2 * var(--s-3)) / 3 * 130 / 140);
+    }
   }
 
   .ride-line {

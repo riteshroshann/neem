@@ -52,6 +52,16 @@ At KV Sector 25, with ₹3 lakh to spend, the agent planted 85 neems for ₹2,97
 
 ![The same yard with 85 neems: their shade breaks it into cooler pools](https://neem-lemon.vercel.app/twins/osm-w1321574340/map-1pm-plan.png)
 
+## Thirty years forward
+
+A tree planted today is a promise about a yard someone else's child will stand in. So Neem grows the plan: the same 85 neems at 1, 5, 10, 20 and 30 years, each age a full SOLWEIG and child-twin run on that same Monday in April, so the trees are the only thing that changes. How big a neem gets by each age is my assumption, inside published ranges.
+
+The first year does nothing. The saplings are 2 m tall in their brick guards and the yard still feels like 46.6 °C. By year five the shade has arrived: the yard drops out of extreme heat stress to 44.8 °C, and under the crowns 1 pm feels like 42.7 °C where the same ground is 47.4 °C today. By year thirty the crowns cover 5,861 m², and the ground beneath them feels like 42.1 °C where it is 47.2 °C now.
+
+The home page tells it as a ride you scroll through, the yard growing in 3D beside the numbers, and it ends on one line. Every year a new nine-year-old walks into that yard on the same hot day. Only the trees get older.
+
+![The yard thirty years after planting: a closed grove of neems over cooler ground](https://neem-lemon.vercel.app/media/future-y30.jpg)
+
 ## Trust, then check again
 
 Every number on the site has to trace back to a run I can repeat. Tests set independent pieces against each other: my shadow caster agrees with SOLWEIG on more than 97% of cells, and the preview's average error stays under 1 °C on a design it was never calibrated on. Those tests earned their keep. One caught SOLWEIG quietly rewriting the arrays it was handed. Another caught DynamoDB refusing floating-point numbers.

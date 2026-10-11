@@ -216,8 +216,10 @@ const waterSaved = Math.round(waterPlan - waterToday);
       calc(100% - 8px) 50%;
   }
 
+  /* above the handle, so the split line passes behind a label instead of through it */
   .tag {
     position: absolute;
+    z-index: 1;
     top: var(--s-3);
     padding: 4px 8px;
     background: var(--paper);
