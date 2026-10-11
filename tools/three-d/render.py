@@ -1,7 +1,6 @@
 """The yard film: a 12 s loop of one school's heat twin in 3D, for the night band on the home page.
 
-    uv run --no-project --with playwright --with imageio-ffmpeg --with pillow \
-        python tools/three-d/render.py
+    uv run --no-project --with playwright,imageio-ffmpeg,pillow python tools/three-d/render.py
 
 Drives tools/three-d/render.html in headless Chromium, on the GPU through ANGLE or on SwiftShader
 when there is none, saves every frame, and encodes web/public/media/kv-3d.webm, kv-3d.mp4 and the
@@ -29,6 +28,8 @@ FRAMES = 12 * FPS
 SIZE = (1280, 800)
 SCALE = 2  # render at twice the size and average down: clean edges on a 1 m grid
 POSTER_T = 6.2  # early in the hold: the plan at full size, the grove in front of the school
+# the page embeds these as a 16:10 film; past this they start to weigh on the home page
+BUDGET = {"kv-3d.webm": 3_000_000, "kv-3d.mp4": 3_500_000, "kv-3d.jpg": 180_000}
 GL_PATHS = {
     "gpu": ["--enable-gpu", "--use-angle=d3d11"],
     "swiftshader": ["--use-gl=swiftshader"],
@@ -103,17 +104,18 @@ def ffmpeg(*args: str) -> None:
 
 def encode(frames: Path) -> None:
     w, h = SIZE
-    src = ["-framerate", str(FPS), "-i", str(frames / "f%04d.png")]
-    # average the 2x frames down, then bt709 limited range, tagged so browsers decode it as such
-    vf = ["-vf", f"scale={w}:{h}:flags=area:out_color_matrix=bt709:out_range=tv,format=yuv420p"]
-    tags = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"]
-    tags += ["-color_range", "tv", "-an"]
+    src = ["-framerate", str(FPS), "-i", str(frames / "f%04d.png"), "-an"]
+    # Average the 2x frames down to bt709 limited range. The tags go on the frames: ffmpeg 7
+    # writes those and drops -color_primaries and -color_trc given as encoder options.
+    yuv = f"scale={w}:{h}:flags=area:out_color_matrix=bt709:out_range=tv,format=yuv420p"
+    tags = "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709:range=tv"
+    vf = ["-vf", f"{yuv},{tags}"]
     vp9 = ["-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "34", "-row-mt", "1"]
     vp9 += ["-deadline", "good", "-cpu-used", "1", "-passlogfile", str(frames / "vp9")]
     ffmpeg(*src, *vf, *vp9, "-pass", "1", "-f", "null", "-")
-    ffmpeg(*src, *vf, *vp9, "-pass", "2", *tags, str(MEDIA / "kv-3d.webm"))
+    ffmpeg(*src, *vf, *vp9, "-pass", "2", str(MEDIA / "kv-3d.webm"))
     x264 = ["-c:v", "libx264", "-preset", "veryslow", "-crf", "26", "-profile:v", "high"]
-    ffmpeg(*src, *vf, *x264, *tags, "-movflags", "+faststart", str(MEDIA / "kv-3d.mp4"))
+    ffmpeg(*src, *vf, *x264, "-movflags", "+faststart", str(MEDIA / "kv-3d.mp4"))
     poster = Image.open(frames / f"f{round(POSTER_T * FPS):04d}.png").convert("RGB")
     poster.reduce(SCALE).save(MEDIA / "kv-3d.jpg", quality=82, optimize=True, progressive=True)
 
@@ -128,8 +130,11 @@ def main() -> None:
     if not args.encode_only:
         render(args.frames)
     encode(args.frames)
-    for name in ("kv-3d.webm", "kv-3d.mp4", "kv-3d.jpg"):
-        print(f"{name:11} {(MEDIA / name).stat().st_size:>9,} bytes")
+    for name, limit in BUDGET.items():
+        size = (MEDIA / name).stat().st_size
+        print(f"{name:11} {size:>9,} bytes")
+        if size > limit:
+            raise SystemExit(f"{name} is over its {limit:,} byte budget")
 
 
 if __name__ == "__main__":

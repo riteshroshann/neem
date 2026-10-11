@@ -37,7 +37,7 @@
       const ZONE_BUILDING = 2;
       const TALL_M = 2.5; // palette.map.tall_m: anything taller is a roof
       const NEEM = { height: 7.0, radius: 3.5 }; // physics.ts SPECIES.neem
-      const SKIRT_M = 4;
+      const SKIRT_M = 4; // how far the tile's edge drops below its lowest ground
       const GREEN_M = 1; // a sprouting crown is fully green once it is this tall
 
       // Timeline in seconds. 9.5 s to 12 s plays the growth backwards, so the loop closes.
@@ -251,7 +251,12 @@
           roof[i] = zones[i] === ZONE_BUILDING || dsm[i] - dem[i] > TALL_M ? 1 : 0;
         }
 
-        const geometry = new THREE.PlaneGeometry((cols - 1) * px, (rows - 1) * px, cols - 1, rows - 1);
+        const geometry = new THREE.PlaneGeometry(
+          (cols - 1) * px,
+          (rows - 1) * px,
+          cols - 1,
+          rows - 1,
+        );
         geometry.rotateX(-Math.PI / 2);
         geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(n * 3), 3));
         const mesh = new THREE.Mesh(
@@ -314,9 +319,10 @@
           const clock = growthClock(t);
           const grown = trees.map((tree) => smoother((clock - tree.start) / TREE_S));
           planted.fill(0);
-          trees.forEach((tree, j) => {
+          for (let j = 0; j < trees.length; j++) {
+            const tree = trees[j];
             const s = grown[j];
-            if (s <= 0) return;
+            if (s <= 0) continue;
             const r2 = (NEEM.radius * s) ** 2;
             const h = NEEM.height * s;
             for (let k = 0; k < tree.cells.length; k++) {
@@ -326,7 +332,7 @@
               const i = tree.cells[k];
               if (v > planted[i]) planted[i] = v;
             }
-          });
+          }
           const p = pos.array;
           const c = col.array;
           for (let i = 0; i < n; i++) {
@@ -353,6 +359,7 @@
         }
 
         paint(0);
+        // the rim is the same at every t: new trees stand well inside the school
         const edge = skirt(pos.array, -SKIRT_M);
 
         // frame the tile's rim, its foot, and everything standing on it
@@ -380,10 +387,10 @@
         renderer.setClearColor(NIGHT);
         document.body.appendChild(renderer.domElement);
 
-        window.renderAt = (t, phi) => {
+        window.renderAt = (t) => {
           const time = ((t % LOOP) + LOOP) % LOOP;
           paint(time);
-          place(camera, phi ?? PHI0 + (360 * time) / LOOP, framing.distance, target);
+          place(camera, PHI0 + (360 * time) / LOOP, framing.distance, target);
           renderer.render(scene, camera);
         };
 
