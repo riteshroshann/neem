@@ -1,0 +1,895 @@
+---
+// The long shade: the showcase plan's neems from planting to thirty years, one full SOLWEIG and
+// child-twin run per age (neem-data grow), the same heatwave day every year. On wide screens a 3D
+// ride (tools/three-d/render.py --future) stays pinned and scrubs with the scroll while the years
+// go by beside it; on phones, and for reduced motion, each year is a still.
+import { existsSync } from "node:fs";
+import showcase from "../data/showcase.json";
+import { lakh, ml, pct, rise, rupees, temp } from "../lib/format";
+import { GROWN, STAGES, type Stage, TODAY, TREES } from "../lib/future";
+import { band, heatHex } from "../lib/palette";
+
+const { plan, name } = showcase;
+const RAIL = Array.from({ length: GROWN.years + 1 }, (_, i) => i);
+// the 3D ride and its stills come from tools/three-d/render.py --future; until they are rendered
+// the stage shows each year's flat SOLWEIG map
+const FILM = existsSync("public/media/future-ride.json");
+const at = (years: number) => STAGES.find((s) => s.years === years) ?? TODAY;
+const metres = (s: Stage) => `${s.height_m} m`;
+const y1 = at(1);
+const y5 = at(5);
+
+const beats: Record<number, { title: string; text: string }> = {
+  0: {
+    title: "Nearly a litre before lunch",
+    text: `At 1 pm the open yard feels like ${temp(TODAY.yard_1pm)}. Over the morning shift a nine-year-old's core temperature climbs ${temp(TODAY.child_rise, 2)}, and she loses ${ml(TODAY.water_ml)} of water.`,
+  },
+  1: {
+    title: "The year nothing happens",
+    text: `${TREES} saplings, ${metres(y1)} tall, each in a brick guard. The yard still feels like ${temp(y1.yard_1pm)}. All they need now is water, and someone who remembers them in May.`,
+  },
+  5: {
+    title: "The shade arrives",
+    text: `${metres(y5)} tall. Shade jumps from ${pct(TODAY.shade)} of the morning to ${pct(y5.shade)}, and the yard drops out of ${band(TODAY.yard_1pm).toLowerCase()} heat stress, to ${temp(y5.yard_1pm)}. Under the crowns, 1 pm feels like ${temp(y5.under_crowns_1pm ?? 0)} where today it is ${temp(y5.under_crowns_today ?? 0)}.`,
+  },
+  10: {
+    title: "Ten summers on",
+    text: `${metres(at(10))} tall. The nine-year-olds who watched them go in have finished school.`,
+  },
+  20: {
+    title: "Her child's school",
+    text: `${metres(at(20))} tall. The girl who was nine at planting could be walking her own child to this gate.`,
+  },
+  30: {
+    title: "A grove",
+    text: `${metres(GROWN)} tall, ${GROWN.crown_cover_m2?.toLocaleString("en-IN")} m² of crown. Under it, 1 pm feels like ${temp(GROWN.under_crowns_1pm ?? 0)}, where the same ground today is ${temp(GROWN.under_crowns_today ?? 0)}.`,
+  },
+};
+---
+
+<section class="night ride" id="future" aria-labelledby="ride-title">
+  <header class="wrap ride-head">
+    <p class="kicker">Thirty years, one yard</p>
+    <h2 class="ride-title" id="ride-title">The long shade.</h2>
+    <p class="ride-lede">
+      {TREES} neems for {name}: {rupees(plan.cost_rs)}, inside a {lakh(plan.budget_rs)} budget.
+      Every year below replays Monday 27 April 2026, the hottest school day before the holidays,
+      so the trees are the only change. Scroll to plant them.
+    </p>
+  </header>
+
+  <div class="ride-screen">
+    <div class="wrap ride-track" data-ride={STAGES.map((s) => s.years).join(",")}>
+      <div class="ride-clock" aria-hidden="true">
+        <p class="kicker">Years after planting</p>
+        <p class="ride-n num" data-year>0</p>
+        <div class="ride-rail">
+          {RAIL.map((y) => (
+            <i data-y={y} class:list={{ on: y === 0, run: STAGES.some((s) => s.years === y) }}></i>
+          ))}
+        </div>
+        <div class="ride-ticks xs num">
+          {STAGES.filter((s) => s.years !== 1).map((s) => (
+            <span style={`left:${(((s.years + 0.5) / RAIL.length) * 100).toFixed(2)}%`}>{s.years}</span>
+          ))}
+        </div>
+      </div>
+
+      <div class="ride-stage" aria-hidden="true">
+        <div class:list={["ride-film", { flat: !FILM }]}>
+          {STAGES.map((s, i) => (
+            <img
+              class:list={["ride-poster", { shown: i === 0, flat: !FILM }]}
+              src={FILM ? `/media/future-y${s.years}.jpg` : s.map}
+              alt=""
+              width={FILM ? 1280 : 233}
+              height={FILM ? 800 : 260}
+              loading="lazy"
+              decoding="async"
+            />
+          ))}
+          {FILM && (
+            <video class="ride-video" muted playsinline preload="none" width="1280" height="800">
+              <source src="/media/future-ride.webm" type="video/webm" />
+              <source src="/media/future-ride.mp4" type="video/mp4" />
+            </video>
+          )}
+        </div>
+      </div>
+
+      <ol class="ride-beats">
+        {STAGES.map((s) => (
+          <li class="ride-beat">
+            {FILM && (
+              <img
+                class="ride-still"
+                src={`/media/future-y${s.years}.jpg`}
+                alt={`The yard in 3D ${s.years ? `${s.years} ${s.years === 1 ? "year" : "years"} after planting` : "today"}, the ground coloured by feels-like temperature at 1 pm`}
+                width="1280"
+                height="800"
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+            <div class="ride-mini" aria-hidden="true">
+              {RAIL.map((y) => <i class:list={{ on: y <= s.years }}></i>)}
+            </div>
+            <p class="kicker">{s.years ? `Year ${s.years}` : "Today"}</p>
+            <h3 class="ride-h">{beats[s.years]?.title}</h3>
+            <p class="ride-text">{beats[s.years]?.text}</p>
+            <div class="ride-run">
+              <figure class="ride-map">
+                <img src={s.map} alt={`SOLWEIG feels-like map of the yard at 1 pm, ${s.years ? `year ${s.years}` : "today"}`} width="96" height="107" loading="lazy" />
+                <figcaption class="xs muted">SOLWEIG, {s.years ? `year ${s.years}` : "today"}</figcaption>
+              </figure>
+              <dl class="ride-readout num">
+                <div>
+                  <dt>Yard at 1 pm</dt>
+                  <dd>
+                    <span class="heat" style={`--cell:${heatHex(s.yard_1pm)}`}>{temp(s.yard_1pm)}</span>
+                    <span class="band">{band(s.yard_1pm)}</span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Her morning</dt>
+                  <dd>{rise(s.child_rise)}<span class="band">{ml(s.water_ml)} of water lost</span></dd>
+                </div>
+                <div class="wide">
+                  <dt>In shade, {pct(s.shade)} of the morning</dt>
+                  <dd class="waffle" aria-hidden="true">
+                    {Array.from({ length: 100 }, (_, k) => <i class:list={{ on: k < Math.round(s.shade * 100) }}></i>)}
+                  </dd>
+                </div>
+                {s.under_crowns_1pm !== undefined && s.under_crowns_today !== undefined && (
+                  <div class="wide">
+                    <dt>Under the new crowns at 1 pm</dt>
+                    <dd class="pair">
+                      <span class="heat" style={`--cell:${heatHex(s.under_crowns_today)}`}>{temp(s.under_crowns_today)}</span>
+                      <span class="band">today</span>
+                      <span class="to" aria-hidden="true">→</span>
+                      <span class="heat" style={`--cell:${heatHex(s.under_crowns_1pm)}`}>{temp(s.under_crowns_1pm)}</span>
+                      <span class="band">year {s.years}</span>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+            </div>
+          </li>
+        ))}
+      </ol>
+
+      <p class="ride-cut" data-cut>She is still nine.</p>
+    </div>
+  </div>
+
+  <div class="wrap ride-growth">
+    <ol class="ride-trees" aria-label="One neem at each modelled age, to scale, beside a nine-year-old">
+      {STAGES.map((s) => (
+        <li>
+          <img
+            src={`/art/growth-y${s.years}.svg`}
+            alt={s.years ? `Year ${s.years}: ${metres(s)} tall, crown ${s.crown_m} m across` : "Today: bare ground"}
+            loading="lazy"
+          />
+          <span class="xs num">{s.years ? `Year ${s.years} · ${metres(s)}` : "Today"}</span>
+        </li>
+      ))}
+    </ol>
+    <p class="ride-line">
+      Every year a new nine-year-old walks into this yard on the same hot day. Only the trees get
+      older.
+    </p>
+    <p class="xs muted ride-note">
+      Heights and crowns by age are our assumption, within published ranges for neem; every result
+      is a full SOLWEIG and JOS-3 run. Between the runs the film shows years, never numbers.
+    </p>
+  </div>
+
+  <figure class="wrap ride-bloom">
+    <canvas class="bloom" data-cells={GROWN.crown_cover_m2} data-seeds={TREES} aria-hidden="true"></canvas>
+    <figcaption>
+      <p class="ride-bloom-title">
+        {TREES} saplings. {GROWN.crown_cover_m2?.toLocaleString("en-IN")} square metres of canopy.
+      </p>
+      <p class="xs muted">
+        One square for every square metre of crown in the year-{GROWN.years} run, counted rather
+        than mapped: each grows out from the nearest of {TREES} seeds.
+      </p>
+    </figcaption>
+  </figure>
+
+  <div class="wrap ride-vision">
+    <p class="kicker">A vision</p>
+    <p class="ride-big">Then the next yard.</p>
+    <div class="ride-vision-text">
+      <p>
+        766 Delhi yards are waiting. Neem where the ground is hard and dry, banyan and peepal where
+        there's room to spread, and the hush you only find under very big trees. Then the streets,
+        then India. Long term, a planet that grows its own shade: terraforming, the gentle way.
+      </p>
+      <p>
+        Every result above is a model run. This part is a dream. Next, any courtyard filmed on a
+        phone gets its own ride: the <a href="#yard3d">reconstruction pipeline</a> is built and
+        tested, and the first real yard is next.
+      </p>
+    </div>
+    <p><a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a></p>
+  </div>
+  <img
+    class="ride-grove"
+    src="/art/grove.svg"
+    alt="A schoolyard grown into a grove at night: neems and a banyan with hanging roots, children in the shade, fireflies under the crowns"
+    width="320"
+    height="92"
+    loading="lazy"
+  />
+</section>
+
+<script>
+  import { frameAt } from "../lib/scrub";
+
+  interface Ride {
+    fps: number;
+    frames: number;
+    years: number[];
+    stages: { years: number; frame: number }[];
+  }
+
+  // 85 seeds, then every square of canopy grows out from the nearest one
+  for (const canvas of document.querySelectorAll<HTMLCanvasElement>("canvas.bloom")) {
+    const total = Number(canvas.dataset.cells);
+    const seeds = Number(canvas.dataset.seeds);
+    const cols = Math.ceil(Math.sqrt(total));
+    const rows = Math.ceil(total / cols);
+    let state = seeds;
+    const rand = () => {
+      state = (state + 0x6d2b79f5) | 0;
+      let t = Math.imul(state ^ (state >>> 15), 1 | state);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const pts: [number, number][] = [];
+    for (let tries = 0; pts.length < seeds && tries < 50_000; tries++) {
+      const x = rand() * cols;
+      const y = rand() * (rows - 1);
+      if (pts.every(([px, py]) => (px - x) ** 2 + (py - y) ** 2 >= 25)) pts.push([x, y]);
+    }
+    const dist = Array.from({ length: total }, (_, k) => {
+      const cx = (k % cols) + 0.5;
+      const cy = Math.floor(k / cols) + 0.5;
+      return Math.sqrt(Math.min(...pts.map(([px, py]) => (px - cx) ** 2 + (py - cy) ** 2)));
+    });
+    const order = dist.map((_, k) => k).sort((a, b) => (dist[a] ?? 0) - (dist[b] ?? 0));
+    const shade = (d: number) =>
+      d < 0.75 ? "#9cc57e" : d < 2.5 ? "#68a05c" : d < 4.5 ? "#3f7d4f" : "#2c6142";
+
+    const ctx = canvas.getContext("2d");
+    let drawn = 0;
+    const room = canvas.parentElement?.clientWidth ?? 540;
+    const pitch = Math.max(3, Math.min(7, Math.floor(room / cols)));
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = `${cols * pitch}px`;
+    canvas.style.height = `${rows * pitch}px`;
+    canvas.width = Math.round(cols * pitch * dpr);
+    canvas.height = Math.round(rows * pitch * dpr);
+    ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const draw = (upto: number) => {
+      if (!ctx) return;
+      for (; drawn < upto; drawn++) {
+        const k = order[drawn] ?? 0;
+        ctx.fillStyle = shade(dist[k] ?? 0);
+        ctx.fillRect((k % cols) * pitch, Math.floor(k / cols) * pitch, pitch - 1, pitch - 1);
+      }
+    };
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      draw(total);
+      continue;
+    }
+    new IntersectionObserver(
+      ([entry], observer) => {
+        if (!entry?.isIntersecting) return;
+        observer.disconnect();
+        const start = performance.now();
+        const step = (now: number) => {
+          const t = Math.min(1, (now - start) / 1600);
+          draw(Math.round(total * (1 - (1 - t) ** 3)));
+          if (t < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      },
+      { threshold: 0.5 },
+    ).observe(canvas);
+  }
+
+  const MASTHEAD = 57;
+  const HOLD = 0.22; // share of each gap, either side of a year's card, that the film rests on it
+  const live = window.matchMedia("(min-width: 1000px) and (prefers-reduced-motion: no-preference)");
+
+  for (const track of document.querySelectorAll<HTMLElement>("[data-ride]")) {
+    const screen = track.parentElement as HTMLElement;
+    const video = track.querySelector("video");
+    const posters = Array.from(track.querySelectorAll<HTMLImageElement>(".ride-poster"));
+    const beats = Array.from(track.querySelectorAll<HTMLElement>(".ride-beat"));
+    const cut = track.querySelector("[data-cut]") as HTMLElement;
+    const clock = track.querySelector(".ride-clock") as HTMLElement;
+    const yearEl = track.querySelector("[data-year]") as HTMLElement;
+    const cells = Array.from(track.querySelectorAll<HTMLElement>(".ride-rail i"));
+    const runs = (track.dataset.ride ?? "0").split(",").map(Number);
+    const last = runs[runs.length - 1] ?? 30;
+
+    let ride: Ride | null = null;
+    let ready = false;
+    let target = -1;
+    let queued = false;
+    let centres: number[] = [];
+    let cutAt = Number.POSITIVE_INFINITY;
+
+    // where each year's card and the cut sit in the page
+    const measure = () => {
+      const mid = (el: HTMLElement) => {
+        const box = el.getBoundingClientRect();
+        return box.top + window.scrollY + box.height / 2;
+      };
+      centres = beats.map(mid);
+      cutAt = cut.getBoundingClientRect().top + window.scrollY;
+    };
+
+    // the run we are at or past, and how far toward the next (0 to 1); the film rests on each
+    // run while its card is near the middle of the screen
+    const position = (line: number): [number, number] => {
+      for (let i = 0; i < centres.length - 1; i++) {
+        const a = centres[i] ?? 0;
+        const b = centres[i + 1] ?? 0;
+        if (line < b - HOLD * (b - a)) {
+          const t = ((line - a) / (b - a) - HOLD) / (1 - 2 * HOLD);
+          return [i, Math.min(1, Math.max(0, t))];
+        }
+      }
+      return [centres.length - 1, 0];
+    };
+
+    // one seek at a time; the latest target wins once the current one lands
+    const seek = (frame: number) => {
+      if (!ride || !video) return;
+      target = frame;
+      if (!video.seeking) video.currentTime = (frame + 0.5) / ride.fps;
+    };
+    video?.addEventListener("seeked", () => {
+      if (ride && Math.floor(video.currentTime * ride.fps) !== target) seek(target);
+    });
+
+    const paint = () => {
+      queued = false;
+      // the middle of what is visible under the masthead and the sticky year
+      const top = MASTHEAD + clock.offsetHeight;
+      const line = window.scrollY + top + (window.innerHeight - top) / 2;
+      track.classList.toggle("cut", line >= cutAt);
+      const [i, t] = position(line);
+      const from = runs[i] ?? 0;
+      let year = from + t * ((runs[i + 1] ?? from) - from);
+      if (ride && ready) {
+        const a = ride.stages[i]?.frame ?? 0;
+        const b = ride.stages[i + 1]?.frame ?? a;
+        const frame = frameAt((a + t * (b - a)) / (ride.frames - 1), ride.frames);
+        year = ride.years[frame] ?? year;
+        seek(frame);
+      }
+      const whole = Math.floor(year + 1e-6);
+      yearEl.textContent = String(whole);
+      for (const cell of cells) {
+        const y = Number(cell.dataset.y);
+        cell.classList.toggle("on", y <= whole);
+        cell.classList.toggle("now", y === whole);
+      }
+      const nearest = t < 0.5 ? i : Math.min(i + 1, posters.length - 1);
+      posters.forEach((p, k) => {
+        p.classList.toggle("shown", k === nearest);
+      });
+      screen.style.setProperty("--cool", (year / last).toFixed(3));
+    };
+    const schedule = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(paint);
+    };
+
+    const load = async () => {
+      if (!video) return; // no film yet: the maps carry it
+      try {
+        ride = (await (await fetch("/media/future-ride.json")).json()) as Ride;
+      } catch {
+        return; // the stills carry it
+      }
+      video.addEventListener(
+        "loadeddata",
+        () => {
+          ready = true;
+          track.classList.add("playing");
+          schedule();
+        },
+        { once: true },
+      );
+      video.preload = "auto";
+      video.load();
+    };
+
+    let started = false;
+    const start = () => {
+      if (!live.matches) return;
+      track.classList.add("live");
+      measure();
+      schedule();
+      if (started) return;
+      started = true;
+      new IntersectionObserver(
+        ([entry], observer) => {
+          if (!entry?.isIntersecting) return;
+          observer.disconnect();
+          load();
+        },
+        { rootMargin: "100% 0px" },
+      ).observe(track);
+      window.addEventListener("scroll", schedule, { passive: true });
+      // anything above that loads late or reflows moves the cards; measure again
+      new ResizeObserver(() => {
+        measure();
+        schedule();
+      }).observe(document.body);
+    };
+    start();
+    live.addEventListener("change", start);
+  }
+</script>
+
+<style>
+  .ride {
+    padding-top: var(--section);
+  }
+
+  .ride-head {
+    display: grid;
+    gap: var(--s-4) var(--s-8);
+    padding-bottom: var(--s-8);
+  }
+
+  .ride-title {
+    font: 400 clamp(3.25rem, 9vw, 8.5rem) / 0.92 var(--serif);
+    letter-spacing: -0.03em;
+  }
+
+  .ride-lede {
+    max-width: 46ch;
+    font-size: var(--t-l);
+    line-height: 1.45;
+    color: var(--muted);
+  }
+
+  @media (min-width: 1000px) {
+    .ride-head {
+      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+      align-items: end;
+    }
+    .ride-head .kicker {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* the screen: plain night with no stars, cooling from warm black toward the green-black of
+     deep shade as the years pass */
+  .ride-screen {
+    --cool: 0;
+    --screen: color-mix(in oklab, #13100d, #0a1510 calc(var(--cool) * 100%));
+    background: var(--screen);
+  }
+
+  .ride-clock,
+  .ride-stage {
+    display: none;
+  }
+
+  .ride-beats {
+    list-style: none;
+    margin: 0;
+    padding: var(--s-6) 0 0;
+    display: grid;
+    gap: var(--s-8);
+  }
+
+  .ride-beat {
+    display: grid;
+    gap: var(--s-3);
+    max-width: 40rem;
+    min-width: 0;
+  }
+
+  .ride-still {
+    width: 100%;
+    height: auto;
+    background: #13100d;
+  }
+
+  .ride-mini {
+    display: grid;
+    grid-template-columns: repeat(31, minmax(0, 1fr));
+    gap: 2px;
+    margin-bottom: var(--s-2);
+  }
+
+  .ride-mini i {
+    aspect-ratio: 1;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .ride-mini i.on {
+    background: var(--leaf);
+    box-shadow: none;
+  }
+
+  .ride-h {
+    font: 400 var(--t-2xl) / 1.05 var(--serif);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .ride-text {
+    max-width: 34ch;
+    font-size: var(--t-body);
+  }
+
+  .ride-run {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-5);
+    align-items: start;
+    margin-top: var(--s-3);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--line);
+  }
+
+  .ride-map {
+    margin: 0;
+    display: grid;
+    gap: var(--s-1);
+    flex: none;
+  }
+
+  .ride-map img {
+    width: 96px;
+    height: auto;
+    image-rendering: pixelated;
+  }
+
+  .ride-readout {
+    flex: 1 1 13rem;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-4);
+    margin: 0;
+  }
+
+  .ride-readout .wide {
+    grid-column: 1 / -1;
+  }
+
+  /* the morning as 100 squares, one per hundredth of the yard-hours, filled where shaded */
+  .waffle {
+    display: grid;
+    grid-template-columns: repeat(20, 7px);
+    gap: 2px;
+    margin-top: var(--s-2);
+  }
+
+  .waffle i {
+    aspect-ratio: 1;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .waffle i.on {
+    background: var(--leaf);
+    box-shadow: none;
+  }
+
+  .pair {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--s-1) var(--s-2);
+  }
+
+  .pair .band {
+    display: inline;
+  }
+
+  .pair .to {
+    font: 400 var(--t-body) / 1 var(--sans);
+    color: var(--muted);
+  }
+
+  .ride-readout dt {
+    font-size: var(--t-xs);
+    color: var(--muted);
+  }
+
+  .ride-readout dd {
+    margin: 2px 0 0;
+    font: 400 var(--t-l) / 1.2 var(--serif);
+  }
+
+  .band {
+    display: block;
+    font: 400 var(--t-xs) / 1.3 var(--sans);
+    color: var(--muted);
+  }
+
+  .heat {
+    background: var(--cell);
+    color: #f7f1e7;
+    padding: 0 0.18em 0.04em;
+  }
+
+  .ride-cut {
+    margin: 0;
+    padding-block: var(--section);
+    font: 400 clamp(2.5rem, 6vw, 5.5rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+    text-align: center;
+  }
+
+  /* wide screens with motion: the year and its timeline stick on the left, the film on the
+     right, and each year's card scrolls up under the year */
+  @media (min-width: 1000px) and (prefers-reduced-motion: no-preference) {
+    .ride-track.live {
+      display: grid;
+      grid-template-columns: minmax(0, 36fr) minmax(0, 64fr);
+      column-gap: var(--s-7);
+      align-items: start;
+    }
+
+    .live .ride-clock {
+      display: grid;
+      gap: var(--s-2);
+      grid-column: 1;
+      grid-row: 1;
+      position: sticky;
+      top: 57px;
+      z-index: 2;
+      padding-block: var(--s-6) var(--s-5);
+      background: var(--screen);
+      box-shadow: 0 1px 0 var(--line);
+    }
+
+    .live .ride-stage {
+      display: grid;
+      align-content: center;
+      grid-column: 2;
+      grid-row: 1 / span 2;
+      position: sticky;
+      top: 57px;
+      height: calc(100svh - 57px);
+    }
+
+    .live .ride-beats {
+      grid-column: 1;
+      grid-row: 2;
+      gap: 0;
+      padding: 0;
+    }
+
+    .live .ride-beat {
+      min-height: calc(92svh - 57px);
+      align-content: center;
+      padding-block: var(--s-7);
+    }
+
+    .live .ride-still,
+    .live .ride-mini {
+      display: none;
+    }
+
+    .live .ride-cut {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      min-height: calc(100svh - 57px);
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+
+    /* the cut: the picture and the clock vanish, the line is alone in the dark */
+    .cut .ride-stage,
+    .cut .ride-clock {
+      visibility: hidden;
+    }
+  }
+
+  .ride-n {
+    margin: 0;
+    font: 400 clamp(5rem, 10vw, 9rem) / 0.85 var(--serif);
+    letter-spacing: -0.03em;
+  }
+
+  .ride-rail {
+    display: grid;
+    grid-template-columns: repeat(31, minmax(0, 1fr));
+    gap: 2px;
+    margin-top: var(--s-3);
+  }
+
+  .ride-rail i {
+    aspect-ratio: 1;
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  .ride-rail i.on {
+    background: var(--leaf);
+    box-shadow: none;
+  }
+
+  .ride-rail i.run.now {
+    box-shadow: 0 0 0 1px var(--ink);
+  }
+
+  .ride-ticks {
+    position: relative;
+    height: 1.2em;
+    color: var(--muted);
+  }
+
+  .ride-ticks span {
+    position: absolute;
+    transform: translateX(-50%);
+  }
+
+  .ride-film {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+  }
+
+  .ride-poster,
+  .ride-video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0;
+  }
+
+  .ride-poster.flat {
+    object-fit: contain;
+    image-rendering: pixelated;
+  }
+
+  /* a flat map is taller than the film: give it the screen's height instead of 16:10 */
+  .ride-film.flat {
+    aspect-ratio: auto;
+    height: calc(100svh - 57px - 2 * var(--s-7));
+  }
+
+  .ride-poster.shown,
+  .playing .ride-video {
+    opacity: 1;
+  }
+
+  .playing .ride-poster.shown {
+    opacity: 0;
+  }
+
+  /* one scale for every tree: the drawings share a height in cells, so they share a height here */
+  .ride-growth {
+    display: grid;
+    gap: var(--s-5);
+    padding-block: var(--s-8) 0;
+  }
+
+  .ride-trees {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 var(--s-3);
+    display: flex;
+    align-items: end;
+    gap: var(--s-5);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ride-trees li {
+    display: grid;
+    gap: var(--s-2);
+    justify-items: center;
+    flex: none;
+    scroll-snap-align: start;
+  }
+
+  /* the six drawings are 560 cells wide side by side and 130 tall: fit the row to the column,
+     and let phones swipe it */
+  .ride-trees img {
+    height: clamp(
+      140px,
+      (min(100vw, var(--page)) - 2 * var(--gutter) - 5 * var(--s-5)) * 130 / 560,
+      260px
+    );
+    width: auto;
+    image-rendering: pixelated;
+  }
+
+  .ride-trees span {
+    color: var(--muted);
+  }
+
+  .ride-line {
+    font: 400 clamp(1.75rem, 3.4vw, 2.75rem) / 1.12 var(--serif);
+    letter-spacing: -0.015em;
+    max-width: 26ch;
+    text-wrap: balance;
+  }
+
+  .ride-note {
+    max-width: var(--measure);
+  }
+
+  .ride-bloom {
+    display: grid;
+    gap: var(--s-6) var(--s-8);
+    align-items: center;
+    margin-block: var(--section) 0;
+  }
+
+  .bloom {
+    display: block;
+    max-width: 100%;
+  }
+
+  .ride-bloom figcaption {
+    display: grid;
+    gap: var(--s-4);
+    max-width: 30rem;
+  }
+
+  .ride-bloom-title {
+    font: 400 clamp(2rem, 4vw, 3.25rem) / 1.05 var(--serif);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  @media (min-width: 900px) {
+    .ride-bloom {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+  }
+
+  .ride-vision {
+    display: grid;
+    gap: var(--s-5);
+    padding-block: var(--section) var(--s-6);
+  }
+
+  .ride-big {
+    font: 400 clamp(2.5rem, 6vw, 5rem) / 1 var(--serif);
+    letter-spacing: -0.02em;
+  }
+
+  .ride-vision-text {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--s-5) var(--s-8);
+    max-width: 62rem;
+  }
+
+  .ride-vision a:not(.button) {
+    color: var(--ink);
+  }
+
+  /* the section comes to rest on the grove, cropped at the sides on narrow screens */
+  .ride-grove {
+    display: block;
+    width: 100%;
+    height: max(150px, calc(100vw * 92 / 320));
+    object-fit: cover;
+    object-position: 50% 100%;
+    margin-bottom: -1px;
+  }
+</style>
