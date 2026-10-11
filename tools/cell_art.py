@@ -35,8 +35,15 @@ BLOSSOM = ["#f7f1de", "#ece0b5"]
 # the UTCI heat ramp, one colour per band
 HEAT = [hex_.lower() for _, hex_ in STOPS]
 CITY = ["#ddd5c8", "#d3cabb"]
-CITY_NIGHT = ["#29221c", "#3a3129"]  # the same city after dark
-WINDOW = "#e8cf9a"  # a lit window
+# the same city after dark: near blocks with their roof caps, the blocks behind, monuments lit
+CITY_NIGHT = ["#3b3129", "#52453a"]
+CITY_FAR = "#241d18"
+MONUMENTS_LIT = ["#8a7258", "#a08a6a", "#b3ada2"]  # Qutub Minar, India Gate, Lotus Temple
+WINDOW = ["#f0d595", "#a8895a", "#2a221c"]  # lit, dim, dark
+EMBER = ["#3d1617", "#561c1b", "#702620"]  # yard ground after dark, still holding the day's heat
+LAMP = ["#fbe9b7", "#8a7866", "#7c3322", "#62271f"]  # bulb, post, its light on the ground, the edge
+SHADE = ["#1c2a1f", "#22331f", "#2d4128"]  # ground under a closed canopy, darkest first
+FIREFLY = "#e8cf9a"
 KID = {"skin": "#8a5a3c", "hair": "#241a14", "shirt": "#fbfaf6", "shorts": "#4b5a78"}
 
 
@@ -322,7 +329,13 @@ def neem_tree(art: Art, x: float, ground: float, height: float, spread: float, s
 
 
 def shade_pool(
-    art: Art, x: float, ground: float, width: float, depth: float, rng: np.random.Generator
+    art: Art,
+    x: float,
+    ground: float,
+    width: float,
+    depth: float,
+    rng: np.random.Generator,
+    colours: tuple[str, str] = (HEAT[1], HEAT[2]),
 ) -> None:
     """Shade on hot ground: cooler bands, dithered at the edge."""
     for r in range(art.rows):
@@ -332,7 +345,7 @@ def shade_pool(
             d = dx * dx + dy * dy
             if d < 1 and art.grid[r, c] >= 0:
                 art.grid[r, c] = art.colour(
-                    HEAT[1] if d + rng.uniform(-0.15, 0.15) < 0.55 else HEAT[2]
+                    colours[0] if d + rng.uniform(-0.15, 0.15) < 0.55 else colours[1]
                 )
 
 
@@ -368,6 +381,64 @@ def tree_guard(art: Art, x: int, ground: int) -> None:
             art.put(c, r, "#a4553a")
     for c in range(x - 2, x + 3):
         art.put(c, ground - 4, "#b9694b")
+
+
+def night_city(
+    art: Art, blocks: list[BaseGeometry], monuments: list[BaseGeometry], horizon: int, seed: int
+) -> None:
+    """The skyline after dark: a far row of blocks, the near row with roof caps and window grids,
+    the monuments floodlit, and the school's boundary wall in front."""
+    rng = np.random.default_rng(seed + 1)
+    far, x = [], -2.0
+    while x < art.cols + 2:
+        w = rng.uniform(4, 9)
+        far.append(box(x, horizon - rng.uniform(9, 16), x + w, horizon))
+        x += w + rng.uniform(0, 3)
+    art.fill(unary_union(far), CITY_FAR)
+    art.fill(unary_union(blocks), CITY_NIGHT[0])
+    wall = art.colour(CITY_NIGHT[0])
+    for b in blocks:
+        x0, y0, x1, y1 = b.bounds
+        cs = range(max(math.ceil(x0), 0), min(math.floor(x1), art.cols))
+        top = math.ceil(y0)
+        for c in cs:  # parapet, and the water tanks that stand on it
+            if 0 <= top < art.rows and art.grid[top, c] == wall:
+                art.put(c, top, CITY_NIGHT[1])
+        if x1 - x0 < 3:
+            continue
+        for r in range(top + 2, math.floor(y1) - 1, 2):
+            for c in cs:
+                if (c - cs.start) % 2 == 1 and art.grid[r, c] == wall:
+                    k = rng.random()
+                    art.put(c, r, WINDOW[0] if k < 0.34 else WINDOW[1] if k < 0.5 else WINDOW[2])
+    for geom, hex_ in zip(monuments, MONUMENTS_LIT, strict=True):
+        art.fill(geom, hex_)
+    for c in range(art.cols):  # the boundary wall, a pillar every sixteen cells
+        art.put(c, horizon - 1, "#4a3e34" if c % 16 in (0, 1) else "#30271f")
+        art.put(c, horizon - 2, "#4a3e34" if c % 16 in (0, 1) else "#3a3029")
+
+
+def street_lamp(art: Art, x: int, horizon: int) -> None:
+    """A lamp post on the wall line, and the warm ellipse it throws on the ground."""
+    for r in range(horizon, art.rows):
+        for c in range(art.cols):
+            dx, dy = (c + 0.5 - x - 2) / 10, (r + 0.5 - horizon - 2) / 3.4
+            d = dx * dx + dy * dy
+            if d < 0.55:
+                art.put(c, r, LAMP[2])
+            elif d < 1 and (c + r) % 2 == 0:
+                art.put(c, r, LAMP[3])
+    for r in range(horizon - 10, horizon):
+        art.put(x, r, LAMP[1])
+    for c in (x, x + 1, x + 2):
+        art.put(c, horizon - 11, LAMP[1])
+    for c, r in (
+        (x + 2, horizon - 10),
+        (x + 3, horizon - 10),
+        (x + 2, horizon - 9),
+        (x + 3, horizon - 9),
+    ):
+        art.put(c, r, LAMP[0])
 
 
 def ground(seed: int = 3, night: bool = False) -> Art:
@@ -429,29 +500,29 @@ def ground(seed: int = 3, night: bool = False) -> Art:
             for a in (-60, -36, -12, 12, 36, 60)
         ]
     ).intersection(box(255, horizon - 12, 281, horizon))
-    city = CITY_NIGHT if night else CITY
-    art.fill(unary_union(blocks), city[0])
-    art.fill(unary_union([minar, gate, lotus]), city[1])
-    if night:  # a few windows still lit, on every other row and column of each block
-        lit, wall = np.random.default_rng(seed + 1), art.colour(city[0])
-        for b in blocks:
-            x0, y0, x1, y1 = b.bounds
-            for r in range(math.ceil(y0) + 1, math.floor(y1) - 1, 2):
-                for c in range(max(math.ceil(x0) + 1, 0), min(math.floor(x1) - 1, cols), 2):
-                    if art.grid[r, c] == wall and lit.random() < 0.16:
-                        art.put(c, r, WINDOW)
+    if night:
+        night_city(art, blocks, [minar, gate, lotus], horizon, seed)
+    else:
+        art.fill(unary_union(blocks), CITY[0])
+        art.fill(unary_union([minar, gate, lotus]), CITY[1])
 
-    # hot ground: very strong near the eye, strong toward the wall, dithered between
+    # hot ground: very strong near the eye, strong toward the wall, dithered between; after dark
+    # the same pattern in embers
     bayer = np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]) / 16
+    near, far = (EMBER[1], EMBER[0]) if night else (HEAT[3], HEAT[2])
     for r in range(horizon, rows):
         depth = (r - horizon) / (rows - horizon)
         for c in range(cols):
             hot = depth * 1.1 + 0.15 * math.sin(c / 23) + bayer[r % 4, c % 4] * 0.6 > 0.7
-            art.put(c, r, HEAT[3] if hot else HEAT[2])
+            art.put(c, r, near if hot else far)
 
     trees = [(26, 30, 34, 1), (118, 22, 26, 2), (232, 27, 32, 4), (300, 20, 24, 5)]
+    pools = ("#2b1a16", "#33201a") if night else (HEAT[1], HEAT[2])
     for x0, _, s, _ in trees:
-        shade_pool(art, x0 - 4, horizon, s * 1.35, 9.0, rng)
+        shade_pool(art, x0 - 4, horizon, s * 1.35, 9.0, rng, pools)
+    if night:
+        for x0 in (78, 140, 190, 268):
+            street_lamp(art, x0, horizon)
     for x0, h, s, sd in trees:
         neem_tree(art, x0, horizon + 0.6, h, s, sd)
     # a sapling in its guard, planted this year
@@ -495,11 +566,11 @@ def stars(seed: int = 7, width: int = 480, height: int = 320, count: int = 70) -
 
 
 def growth(age: int, rows: int, seed: int = 21) -> Art:
-    """One neem at `age`, true to scale (a cell is 12.5 cm), with a nine-year-old beside it."""
+    """One neem at `age` (none at 0), true to scale (a cell is 12.5 cm), beside a nine-year-old."""
     from neem_core.interventions import NEEM_BY_AGE
 
     cell = 0.125
-    height, radius = NEEM_BY_AGE[age]
+    height, radius = NEEM_BY_AGE.get(age, (0.0, 0.0))
     crown = 2 * radius / cell
     cols = int(max(crown, 24) + 28)
     art = Art(cols, rows)
@@ -508,7 +579,9 @@ def growth(age: int, rows: int, seed: int = 21) -> Art:
     for c in range(cols):  # a strip of dry ground
         for r in range(base, rows):
             art.put(c, r, "#d9cdb8" if (c + r) % 3 else "#cfc1a8")
-    if age <= 1:
+    if age == 0:
+        pass  # today: bare ground, and a child with nowhere to stand but the sun
+    elif age <= 1:
         # a sapling on a stake inside its brick guard, the way Delhi plants them
         for r in range(base - int(height / cell), base):
             art.put(trunk_x, r, BARK)
@@ -527,11 +600,93 @@ def growth(age: int, rows: int, seed: int = 21) -> Art:
     return art
 
 
+def banyan(art: Art, x: float, ground: float, height: float, spread: float, seed: int) -> None:
+    """A banyan: a low, very wide crown on a thick trunk, prop roots coming down from its limbs."""
+    rng = np.random.default_rng(seed)
+    base = ground - height * 0.42  # where the crown's underside sits
+    trunk = Polygon(
+        [
+            (x - 6, ground),
+            (x - 4, ground - 3),
+            (x - 3.2, base),
+            (x + 3.2, base),
+            (x + 4, ground - 3),
+            (x + 6, ground),
+        ]
+    )
+    limbs = [
+        tapered(
+            curve(
+                [(x, base + 3), (x + k * spread * 0.18, base - 2), (x + k * spread * 0.42, base)]
+            ),
+            3.2,
+            1.4,
+        )
+        for k in (-1, 1)
+    ]
+    roots = []
+    for _ in range(int(spread / 5)):
+        rx = x + rng.uniform(-0.46, 0.46) * spread
+        if abs(rx - x) < spread * 0.09:
+            continue
+        reach = ground if rng.random() < 0.55 else base + rng.uniform(4, height * 0.35)
+        roots.append(LineString([(rx, base), (rx + rng.uniform(-0.6, 0.6), reach)]))
+    cy = ground - height * 0.66
+    circles = [(x, cy, height * 0.28)]
+    for _ in range(70):
+        circles.append(
+            (
+                x + rng.uniform(-0.48, 0.48) * spread,
+                cy + rng.uniform(-0.22, 0.2) * height,
+                height * rng.uniform(0.1, 0.2),
+            )
+        )
+    crown = unary_union([Point(a, b).buffer(r, 16) for a, b, r in circles])
+    lit = unary_union(
+        [Point(a + 2, b - height * 0.06).buffer(r * 0.8, 16) for a, b, r in circles[1:44]]
+    ).intersection(crown)
+    top = unary_union(
+        [Point(a + 3, b - height * 0.12).buffer(r * 0.5, 16) for a, b, r in circles[1:30]]
+    ).intersection(crown)
+    art.fill(unary_union([r.buffer(rng.uniform(0.3, 0.55)) for r in roots]), BARK_SHADE, 0.25)
+    art.fill(unary_union([trunk, *limbs]), BARK, 0.3)
+    art.fill(crown, LEAF[1])
+    art.fill(lit, LEAF[2])
+    art.fill(top, LEAF[3])
+    for _ in range(int(spread * 0.5)):
+        gx, gy = x + rng.uniform(-0.45, 0.45) * spread, cy + rng.uniform(-0.1, 0.2) * height
+        if crown.contains(Point(gx, gy)):
+            art.put(int(gx), int(gy), LEAF[0])
+
+
+def grove(seed: int = 5) -> Art:
+    """The long view: a schoolyard grown into a grove at night, children in its shade."""
+    cols, rows, horizon = 320, 92, 80
+    rng = np.random.default_rng(seed)
+    art = Art(cols, rows)
+    # cool ground under the crowns, a little lighter where the canopy opens
+    for r in range(horizon, rows):
+        for c in range(cols):
+            light = 0.5 + 0.5 * math.sin(c / 17 + r / 5) * math.sin(c / 41)
+            art.put(c, r, SHADE[2] if light > 0.82 else SHADE[1] if (c + r) % 3 else SHADE[0])
+    banyan(art, 162, horizon + 0.6, 58, 150, seed + 1)
+    for x0, h, s, sd in [(28, 66, 70, 3), (88, 52, 54, 8), (250, 60, 62, 13), (306, 48, 50, 21)]:
+        neem_tree(art, x0, horizon + 0.6, h, s, sd)
+    for x0 in (46, 58, 120, 131, 196, 214, 268, 280):
+        kid(art, x0, horizon + 7 + (x0 % 3))
+    # fireflies under the canopy
+    for _ in range(26):
+        fx, fy = rng.uniform(4, cols - 4), rng.uniform(horizon - 30, horizon - 3)
+        if art.grid[int(fy), int(fx)] < 0 or rng.random() < 0.5:
+            art.put(int(fx), int(fy), FIREFLY)
+    return art
+
+
 if __name__ == "__main__":
     from neem_core.interventions import NEEM_BY_AGE
 
     tallest = int(max(h for h, _ in NEEM_BY_AGE.values()) / 0.125) + 10
-    for age in sorted(NEEM_BY_AGE):
+    for age in [0, *sorted(NEEM_BY_AGE)]:
         growth(age, tallest).svg(f"growth-y{age}.svg", "xMidYMax meet")
     stars()
     branch(seed=11).svg("neem-left.svg", "xMinYMin meet")
@@ -540,3 +695,4 @@ if __name__ == "__main__":
     right.svg("neem-right.svg", "xMaxYMin meet")
     ground().svg("ground.svg", "xMidYMax slice")
     ground(night=True).svg("ground-night.svg", "xMidYMax slice")
+    grove().svg("grove.svg", "xMidYMax slice")
