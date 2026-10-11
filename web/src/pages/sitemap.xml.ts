@@ -3,7 +3,14 @@ import twins from "../data/twins.json";
 
 export const GET: APIRoute = ({ site }) => {
   const base = site ?? new URL("https://neem-lemon.vercel.app");
-  const paths = ["/", "/story", "/method", ...twins.map((t) => `/school/${t.school_id}`)];
+  const paths = [
+    "/",
+    "/story",
+    "/method",
+    "/docs",
+    "/download",
+    ...twins.map((t) => `/school/${t.school_id}`),
+  ];
   const urls = paths
     .map((p) => `  <url><loc>${new URL(p, base).toString()}</loc></url>`)
     .join("\n");

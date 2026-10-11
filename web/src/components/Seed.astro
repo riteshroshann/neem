@@ -101,6 +101,25 @@ const quotes = [
     </div>
     <p><a class="button" href={`/school/${showcase.school_id}`}>Plant trees in a real school</a></p>
   </div>
+
+  <div class="seed-partners rule">
+    <div>
+      <p class="kicker">For NGOs, CSR teams and foundations</p>
+      <p class="seed-partners-line">Fund a schoolyard. Watch it grow.</p>
+    </div>
+    <div class="seed-partners-text">
+      <p>
+        Neem picks the hottest schools in a district, plans the planting inside your budget and
+        shows what it will do for the children before the first sapling goes in. Then it runs the
+        same physics every summer, for numbers you can put in a report and defend. It is free and
+        open.
+      </p>
+      <p class="seed-partners-links">
+        <a class="button" href="/docs#partners">Partner with Neem</a>
+        <a href="https://github.com/riteshroshann/neem/issues/new?title=Partnering%20with%20Neem">Start a conversation</a>
+      </p>
+    </div>
+  </div>
 </section>
 <img
   class="seed-grove"
@@ -293,6 +312,34 @@ const quotes = [
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
     gap: var(--s-5) var(--s-8);
     max-width: 62rem;
+  }
+
+  .seed-partners {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: var(--s-5) var(--s-8);
+    padding-top: var(--s-7);
+  }
+
+  .seed-partners-line {
+    margin-top: var(--s-3);
+    font: 400 clamp(2rem, 4vw, 3.25rem) / 1.05 var(--serif);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .seed-partners-text {
+    display: grid;
+    gap: var(--s-5);
+    align-content: start;
+    max-width: 40rem;
+  }
+
+  .seed-partners-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-4) var(--s-6);
   }
 
   /* the page comes to rest on the grove, cropped at the sides on narrow screens */

@@ -1,0 +1,353 @@
+---
+import ranking from "../data/ranking.json";
+import showcase from "../data/showcase.json";
+import Base from "../layouts/Base.astro";
+import { rupees } from "../lib/format";
+
+const { stats } = ranking;
+const { plan } = showcase;
+const perTree = rupees(plan.cost_rs / plan.trees);
+const issue = "https://github.com/riteshroshann/neem/issues/new?title=Partnering%20with%20Neem";
+---
+
+<Base
+  title="Docs"
+  description="Developer documentation for Neem: how the data, the SOLWEIG physics, the instant preview, the child model and the planning agent fit together, how to run and extend it, and how NGOs and funders can use it."
+  path="/docs"
+  night
+>
+  <section class="wrap head page-head">
+    <p class="kicker">Developer docs</p>
+    <h1 class="display docs-title">Build on Neem.</h1>
+    <p class="lede">
+      Neem is a handful of small programs passing files to each other. This page walks through them
+      in the order the data flows: what each one does, why it exists, and how to run it, change it
+      and take it further. Plain words, real commands.
+    </p>
+    <nav class="toc small" aria-label="On this page">
+      <a href="#flow">The flow</a>
+      <a href="#physics">Physics</a>
+      <a href="#instant">Instant</a>
+      <a href="#child">The child</a>
+      <a href="#agent">The agent</a>
+      <a href="#cloud">The cloud</a>
+      <a href="#run">Run it</a>
+      <a href="#extend">Extend it</a>
+      <a href="#further">How far</a>
+      <a href="#partners">NGOs and funders</a>
+    </nav>
+  </section>
+
+  <article class="wrap body">
+    <section class="block rule" id="flow">
+      <h2 class="title">The whole thing in one breath</h2>
+      <div class="prose">
+        <p>
+          Open data goes in: buildings, tree heights, ground height, schools and weather. A scene
+          builder cuts a 1 m grid around each school. SOLWEIG, a radiation model, works out how hot
+          every square metre feels for every hour of the school day. A model of a child's body turns
+          that into a core temperature and the water lost. A fast model in your browser predicts what
+          trees would change, and SOLWEIG checks it. An agent writes plans with tools that can't lie
+          about numbers. Everything ends up as plain files that the website reads.
+        </p>
+        <ol class="flow num">
+          <li><b>ingest</b> Overture, Meta canopy, Copernicus, OpenStreetMap, ERA5</li>
+          <li><b>scene</b> a 1 m grid per school: ground, roofs, crowns, what counts as yard</li>
+          <li><b>solweig</b> mean radiant temperature, then UTCI, hour by hour</li>
+          <li><b>twin</b> the child's morning, and the files the planner needs</li>
+          <li><b>publish</b> ranking, maps and twins into <code>web/</code></li>
+          <li><b>web</b> the site, the planner and its instant preview</li>
+          <li><b>api + worker</b> "Verify with physics": a real SOLWEIG run on your design</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="block rule" id="physics">
+      <h2 class="title">Physics, from the ground up</h2>
+      <div class="prose">
+        <p>
+          A thermometer in the shade reads the air. A child in an open yard is not in the shade. They
+          take in direct sun, the glare of the sky, sunlight bouncing off the ground, and heat
+          glowing off every surface that has been baking since morning. Add all of that up and you
+          get the <b>mean radiant temperature</b>: the temperature of an imaginary room that would
+          bathe you in the same radiation. In a Delhi yard at 1 pm it runs 20 to 25 °C above the air.
+        </p>
+        <p>
+          SOLWEIG computes it for a person standing on every cell of the grid. It casts shadows from
+          roofs and crowns (crowns let a little light through), measures how much sky each cell can
+          see, and sums the short- and long-wave radiation arriving from six directions. Then
+          <b>UTCI</b> folds in air temperature, humidity and wind to give one "feels like" number on
+          a scale built around the human body. Above 46 °C is extreme heat stress. We run UMEP's Rust
+          implementation on a laptop GPU: about four seconds for a 250 m school.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="instant">
+      <h2 class="title">Making it instant</h2>
+      <div class="prose">
+        <p>
+          Four seconds is fast for physics and slow for a mouse. The trick is to predict the
+          <i>change</i>, not the temperature. Squares your design doesn't touch keep SOLWEIG's exact
+          value. Where you plant, the browser recasts shadows from the new crowns and applies a small
+          model of how much a square cools when it goes from sun to shade, fitted per hour to
+          SOLWEIG runs of that same school. It takes about 10 ms.
+        </p>
+        <p>
+          Then we check it. Tests set the browser's shadow caster against SOLWEIG (they agree on more
+          than 97% of cells) and the preview against full runs of designs it never saw (under 1 °C
+          off on average). Right under a new crown the preview can be a few degrees off at midday,
+          and the page tells you so. "Verify with physics" sends your design to a worker that reruns
+          SOLWEIG and the child's day.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="child">
+      <h2 class="title">A child, not an average</h2>
+      <div class="prose">
+        <p>
+          JOS-3 models a body as 17 segments, each with core, muscle, fat and skin, and simulates
+          sweating and blood flow minute by minute. We scale it to a nine-year-old (1.32 m, 28 kg)
+          and walk it through a government school's morning shift: assembly outdoors, class, recess,
+          the walk home. Outdoors it stands in the yard's typical radiant heat for that hour.
+        </p>
+        <p>
+          JOS-3 was built from adults, so its set points don't scale down to children. Neem reports
+          what holds up: the rise above the child's own resting state, and the water lost. Treat them
+          as indicative, not clinical.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="agent">
+      <h2 class="title">An agent that can't make numbers up</h2>
+      <div class="prose">
+        <p>
+          The planner is a Strands agent running qwen3 4B through Ollama, on the same laptop. It
+          gets a school, a budget and five tools: read the brief, plant trees, add a shade sail,
+          preview, verify. The model decides how many trees, which species and whether a sail is
+          worth it. The tools decide where (the hottest open ground, a crown's width apart), refuse
+          to overspend, and compute every number. If the model forgets to verify, the code does it
+          anyway.
+        </p>
+        <p>
+          The rule is simple: a language model may choose, but only physics may report. That is what
+          makes it safe to put its plans in front of a principal.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="cloud">
+      <h2 class="title">The cloud, on a laptop</h2>
+      <div class="prose">
+        <p>
+          <code>infra/template.yaml</code> is an AWS SAM template for the whole service: an API on
+          Lambda, a worker on SQS, a Step Functions map that ranks schools on up to a hundred workers
+          at once, DynamoDB for jobs and S3 for the data lake. LocalStack emulates all of it, so
+          <code>sam local</code> runs the same Lambda images on your machine. Cedar holds the rules:
+          anyone may explore, physics runs have a size and rate budget, and only a school's own
+          planner may approve its plan, never one physics hasn't verified. Every AWS call goes
+          through an adapter that takes an endpoint, so pointing it at real AWS is a config change.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="run">
+      <h2 class="title">Run it</h2>
+      <div class="prose">
+        <p>
+          On Windows, the easy way is the <a href="/download">setup app</a>: it installs the tools,
+          fetches the code and opens Neem in your browser. By hand, on any OS, you need
+          <code>uv</code>, <code>just</code> and <code>bun</code>:
+        </p>
+        <pre><code>git clone https://github.com/riteshroshann/neem
+cd neem
+uv sync && just check          # Python: lint, types, tests
+cd web && bun install && bun run dev   # the site on :4321
+uv run neem-api                # the physics API on :8000</code></pre>
+        <p>
+          The data pipeline rebuilds everything from public sources: <code>just ingest</code>,
+          <code>just scene &lt;id&gt;</code>, <code>just rank</code>, <code>just publish</code>. The
+          serverless stack: <code>just localstack</code>, <code>just seed</code>,
+          <code>just sam-build</code>, <code>just sam-worker</code>. The planner, with Ollama
+          running: <code>just plan osm-w1321574340</code>.
+        </p>
+        <ul class="tree small">
+          <li><code>packages/neem-core</code> physics: scenes, trees and sails, SOLWEIG, the fast preview, the child</li>
+          <li><code>packages/neem-data</code> ingest, the scene builder, the city ranking, publishing</li>
+          <li><code>packages/neem-agent</code> the Strands planner and its tools</li>
+          <li><code>packages/neem-api</code>, <code>neem-worker</code> the service, its queue and its Cedar rules</li>
+          <li><code>web/</code> this site: Astro with React for the planner and three.js for 3D</li>
+          <li><code>recon/</code> phone video to a 3D model and measured heights</li>
+          <li><code>infra/</code> Docker, LocalStack and the SAM template</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="block rule" id="extend">
+      <h2 class="title">Extend it</h2>
+      <div class="prose">
+        <p>
+          <b>Another city.</b> Every source is global: Overture, the Meta canopy map, Copernicus,
+          OpenStreetMap and ERA5. Change the boundary and the day, and the same commands build its
+          schools. <b>Another tree.</b> A species is a height, a crown and how much light the crown
+          lets through, set once in Python and once in the browser. <b>Another question.</b> SOLWEIG
+          already computes shadow hours and radiant temperature for every cell; a new map is a
+          publish step away. <b>Better heights.</b> Open data knows the height of about 0.5% of
+          Delhi's buildings; <code>recon/</code> turns a 60 to 90 second phone video into measured
+          heights on the same grid.
+        </p>
+        <p>
+          The house rules: every number shown has to come from a run you can repeat, physics code
+          keeps its textbook symbols, and a change that weakens a test is a bug.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="further">
+      <h2 class="title">How far this can go</h2>
+      <div class="prose">
+        <p>
+          The city ranking ran all {stats.schools} Delhi yards in about ten minutes, and a full 1 m
+          twin takes about four seconds a school on one laptop GPU. The Step Functions map in the SAM
+          template fans the same job out over a hundred workers, so a state, or a country with about
+          15 lakh schools, is a matter of compute, not of new code.
+        </p>
+        <p>
+          Next comes a phone in every yard: a short video becomes a 3D model, measured heights and a
+          Gaussian splat you can walk through. Then the same twin every summer, with fresh canopy
+          data, to check which saplings made it and what they are doing for the children under them.
+          Then the ground beyond schools: bus stops, hospital courtyards, streets and parks. One
+          engine, any open ground where people wait in the sun.
+        </p>
+      </div>
+    </section>
+
+    <section class="block rule" id="partners">
+      <h2 class="title">For NGOs, CSR teams and foundations</h2>
+      <div class="prose">
+        <p>
+          If you plant trees or work with schools, Neem can do the parts that are hard to do by eye.
+          <b>Where:</b> rank a district's schools by how hot their yards get for the children in them.
+          <b>What:</b> a plan inside your budget, with a verified cooling number, before a single
+          sapling goes in. A neem costs about {perTree}; {plan.trees} of them, {rupees(plan.cost_rs)},
+          are what the planner chose for Kendriya Vidyalaya. <b>Proof:</b> the same physics after
+          planting and year by year as the trees grow, numbers you can put in a donor report and
+          defend. <b>Open:</b> the code is GPL and the data is public, so there is nothing to lock
+          you in.
+        </p>
+        <p>
+          A simple way to start: pick a district, we run the ranking and the twins, you plant with
+          the schools that need it most, and we re-run every summer. Every yard that becomes a grove
+          is a classroom for the children who will plant the next one.
+        </p>
+        <p><a class="button" href={issue}>Start a conversation</a></p>
+      </div>
+    </section>
+  </article>
+</Base>
+
+<style>
+  .head {
+    padding-bottom: var(--s-8);
+    display: grid;
+    gap: var(--s-6);
+  }
+
+  .docs-title {
+    max-width: 10ch;
+  }
+
+  .toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-5);
+  }
+
+  .toc a {
+    color: var(--muted);
+  }
+
+  .toc a:hover {
+    color: var(--ink);
+  }
+
+  .body {
+    padding-bottom: var(--section);
+  }
+
+  .block {
+    display: grid;
+    grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+    gap: var(--s-8);
+    padding-block: var(--s-7) var(--s-8);
+    scroll-margin-top: 72px;
+  }
+
+  .flow {
+    list-style: none;
+    margin: var(--s-5) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-2);
+    border-left: 1px solid var(--line-strong);
+  }
+
+  .flow li {
+    position: relative;
+    padding-left: var(--s-5);
+    color: var(--muted);
+  }
+
+  .flow li::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 0.55em;
+    width: 9px;
+    height: 9px;
+    background: var(--ink);
+  }
+
+  .flow b {
+    display: inline-block;
+    min-width: 8.5em;
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  pre {
+    margin: var(--s-4) 0;
+    padding: var(--s-4) var(--s-5);
+    overflow-x: auto;
+    font: 500 var(--t-s) / 1.7 var(--sans);
+    border: 1px solid var(--line);
+  }
+
+  code {
+    font: 500 0.95em var(--sans);
+    color: var(--ink);
+  }
+
+  .tree {
+    list-style: none;
+    margin: var(--s-5) 0 0;
+    padding: 0;
+    display: grid;
+    gap: var(--s-2);
+    color: var(--muted);
+  }
+
+  .tree code {
+    color: var(--ink);
+    margin-right: var(--s-2);
+  }
+
+  @media (max-width: 900px) {
+    .block {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-5);
+    }
+  }
+</style>

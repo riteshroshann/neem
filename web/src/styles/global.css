@@ -69,8 +69,8 @@
   --s-10: 128px;
 
   --measure: 58ch;
-  --page: 1320px;
-  --gutter: clamp(16px, 4vw, 48px);
+  --page: 1640px;
+  --gutter: clamp(16px, 4vw, 60px);
   --section: clamp(64px, 8vw, 120px);
   /* room under the neem branches that hang into the top corners of every page */
   --canopy: clamp(132px, 15vw, 228px);
@@ -229,7 +229,7 @@ figcaption {
 }
 
 /* when the column fills the window, the frame steps in to 12 px; on phones it goes */
-@media (max-width: 1344px) {
+@media (max-width: 1664px) {
   .rule::before {
     left: 6px;
   }
