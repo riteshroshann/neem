@@ -1,6 +1,6 @@
 # Demo video: under 3 minutes
 
-A walk through the live site, read aloud while recording. About 430 words of narration, which runs about 2:50 at an easy pace. Every number is from a real run.
+A walk through the live site, read aloud while recording. About 400 words of narration: 2:40 of speech at an easy pace, under 3:00 with the clicks. Every number is from a real run.
 
 ## Before recording
 
