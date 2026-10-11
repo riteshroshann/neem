@@ -87,4 +87,4 @@ sam-rank:
 
 # The API through API Gateway emulation
 sam-api:
-    sam local start-api -t .aws-sam/build/template.yaml --env-vars infra/sam-env.json --docker-network neem --port 3000
+    sam local start-api -t .aws-sam/build/template.yaml --env-vars infra/sam-env.json --docker-network neem --port 3000 --warm-containers EAGER

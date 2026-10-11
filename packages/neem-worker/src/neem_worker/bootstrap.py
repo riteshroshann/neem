@@ -1,7 +1,8 @@
 """Create the jobs table, the queue and the lake bucket, and seed the lake. Idempotent.
 
 Used by the local stack (LocalStack) and before `sam local`. Seeding uploads the parts of the
-local lake the API and worker read, so they find on emulated S3 exactly what Lambda would.
+local lake the API, worker and rank Lambdas read, so they find on emulated S3 exactly what
+Lambda would.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import boto3
 
 from neem_api.settings import settings
 
-SEED_PREFIXES = ("scenes", "runs", "rank", "raw/met", "raw/osm", "plans")
+SEED_PREFIXES = ("scenes", "runs", "rank", "raw/met", "raw/osm", "raw/overture", "plans")
 DEMO_JOB = "demo0000000000ab"
 
 

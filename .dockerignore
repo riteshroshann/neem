@@ -1,0 +1,8 @@
+# The images need only the workspace manifests and packages. Without this, sam build tars
+# the whole repo (venvs, recon's torch env, web builds: gigabytes) and fails when a file
+# changes underneath it.
+*
+!pyproject.toml
+!uv.lock
+!packages
+**/__pycache__

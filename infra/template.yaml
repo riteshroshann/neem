@@ -63,7 +63,7 @@ Resources:
   JobsQueue:
     Type: AWS::SQS::Queue
     Properties:
-      VisibilityTimeout: 360
+      VisibilityTimeout: 960 # above the worker's 900 s, so a slow job is never handed out twice
       RedrivePolicy:
         deadLetterTargetArn: !GetAtt JobsDeadLetters.Arn
         maxReceiveCount: 3
@@ -98,6 +98,7 @@ Resources:
     Properties:
       PackageType: Image
       Description: Verifies designs with SOLWEIG
+      Timeout: 900 # a CPU run spends most of 4 minutes on the sky view factor; leave headroom
       ImageConfig:
         Command: ["python", "-m", "awslambdaric", "neem_worker.main.handler"]
       Policies:
