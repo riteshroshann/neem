@@ -42,7 +42,6 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
   </head>
   <body class={night ? "night" : undefined}>
     <a class="skip visually-hidden" href="#main">Skip to content</a>
-    <div class="guides" aria-hidden="true"></div>
     <header class="masthead night">
       <div class="wrap bar">
         <a class="wordmark" href="/" aria-label="Neem, home">Neem</a>
@@ -58,6 +57,7 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
       <img src="/art/neem-right.svg" alt="" width="84" height="52" fetchpriority="low" />
     </div>
     <main id="main">
+      <div class="vines" aria-hidden="true"></div>
       <slot />
     </main>
     <footer class:list={["footer", night && "night"]}>
@@ -96,19 +96,51 @@ const fullTitle = title === "Neem" ? "Neem: heat twins for Delhi schoolyards" : 
     z-index: 10;
   }
 
-  /* the page's frame: two hairlines on the edges of the content column, top to bottom */
-  .guides {
-    position: fixed;
+  /* creepers climbing down both edges of the content column, in two layers: a dark one behind,
+     and a brighter one in front with roots and flowers; the right side is the left mirrored and
+     out of step, so the two never line up */
+  main {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .vines {
+    position: absolute;
     inset: 0 auto 0 50%;
     width: min(100% - 24px, var(--page));
     transform: translateX(-50%);
-    border-inline: 1px solid var(--line);
     pointer-events: none;
     z-index: -1;
   }
 
+  .vines::before,
+  .vines::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 56px;
+    background:
+      url("/art/vine-front.svg") 4px 0 / 48px auto repeat-y,
+      url("/art/vine-back.svg") 14px 140px / 40px auto repeat-y;
+    image-rendering: pixelated;
+    opacity: 0.9;
+  }
+
+  .vines::before {
+    left: -28px;
+  }
+
+  .vines::after {
+    right: -28px;
+    transform: scaleX(-1);
+    background-position:
+      4px 330px,
+      14px 0;
+  }
+
   @media (max-width: 720px) {
-    .guides {
+    .vines {
       display: none;
     }
   }

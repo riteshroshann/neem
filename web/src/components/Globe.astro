@@ -2,6 +2,12 @@
 import showcase from "../data/showcase.json";
 import { BAND_COLOURS, SUN_BANDS } from "../lib/globe";
 
+interface Props {
+  /** Keep the Earth turning under the sun, without the labels that pin the 1 pm snapshot. */
+  spin?: boolean;
+}
+
+const { spin = false } = Astro.props;
 const { day, sun } = showcase;
 const [sunLat, sunLon] = sun.subsolar as [number, number];
 const altitude = Math.round(sun.altitude);
@@ -25,25 +31,31 @@ const bands = [
 ].map((label, i) => ({ label, hex: BAND_COLOURS[i] }));
 ---
 
-<figure class="globe" data-globe data-sun={JSON.stringify(sun.subsolar)} data-site={JSON.stringify(sun.site)}>
+<figure class="globe" data-globe data-sun={JSON.stringify(sun.subsolar)} data-site={JSON.stringify(sun.site)} data-spin={spin ? "8" : "0"}>
   <div class="globe-stage">
     <canvas
       role="img"
-      aria-label={`The Earth on ${date}, coloured by the height of the sun the model used for the ${hour} hour in Delhi, where it stood at ${sun.at}. It is straight overhead at ${overhead}, and ${altitude}° above the schoolyard in Delhi.`}
+      aria-label={spin
+        ? `The Earth turning under the sun, each place coloured by how high the sun stands over it. At the model's ${hour} hour in Delhi on ${date} it was straight overhead at ${overhead}, and ${altitude}° above the schoolyard.`
+        : `The Earth on ${date}, coloured by the height of the sun the model used for the ${hour} hour in Delhi, where it stood at ${sun.at}. It is straight overhead at ${overhead}, and ${altitude}° above the schoolyard in Delhi.`}
     ></canvas>
-    <svg class="globe-marks" aria-hidden="true">
-      <polyline class="lead" data-lead="site" points=""></polyline>
-      <polyline class="lead" data-lead="sun" points=""></polyline>
-      <rect class="mark" data-mark="site" width="13" height="13"></rect>
-      <circle class="mark" data-mark="sun" r="6.5"></circle>
-    </svg>
-    <p class="globe-label" data-label="site" aria-hidden="true">
-      <b>Delhi, {hour}</b> sun {altitude}° high
-    </p>
-    <p class="globe-label" data-label="sun" aria-hidden="true">
-      <b>Sun overhead</b>
-      {overhead}
-    </p>
+    {!spin && (
+      <>
+      <svg class="globe-marks" aria-hidden="true">
+        <polyline class="lead" data-lead="site" points=""></polyline>
+        <polyline class="lead" data-lead="sun" points=""></polyline>
+        <rect class="mark" data-mark="site" width="13" height="13"></rect>
+        <circle class="mark" data-mark="sun" r="6.5"></circle>
+      </svg>
+      <p class="globe-label" data-label="site" aria-hidden="true">
+        <b>Delhi, {hour}</b> sun {altitude}° high
+      </p>
+      <p class="globe-label" data-label="sun" aria-hidden="true">
+        <b>Sun overhead</b>
+        {overhead}
+      </p>
+      </>
+    )}
   </div>
   <figcaption class="globe-legend">
     <span class="kicker">Sun height</span>
@@ -105,8 +117,10 @@ const bands = [
       }
     };
 
-    const globe = createGlobe(canvas, { sun, focus, intro: !reduce, draggable: true, onSettle: place });
-    if (reduce) place(true);
+    const spin = Number(fig.dataset.spin ?? 0);
+    const onSettle = spin ? undefined : place;
+    const globe = createGlobe(canvas, { sun, focus, intro: !reduce, draggable: true, spin, onSettle });
+    if (reduce && !spin) place(true);
   }
 </script>
 

@@ -691,6 +691,80 @@ def grove(seed: int = 5) -> Art:
     return art
 
 
+def vine(rows: int, seed: int, back: bool = False) -> Art:
+    """A creeper for the page's edges, drawn to tile top to bottom: a stem that wanders and comes
+    back to where it started, heart-shaped leaves on alternate sides, curling tendrils, roots
+    hanging from some nodes and, in front, a few cream flowers. The back layer is darker and
+    plainer, to sit behind the front one."""
+    rng = np.random.default_rng(seed)
+    cols = 16
+    art = Art(cols, rows)
+
+    def x_at(y: float) -> float:
+        t = 2 * math.pi * y / rows
+        return cols / 2 + 2.4 * math.sin(t) + 0.9 * math.sin(2 * t + 1.3)
+
+    green, lit = (LEAF[0], LEAF[1]) if back else (LEAF[2], LEAF[3])
+    # every leaf, tendril and root is drawn three times, a tile apart, so the seam joins up
+    shifts = (-rows, 0, rows)
+    stem = LineString([(x_at(y), y) for y in np.linspace(-rows, 2 * rows, rows * 6)])
+    art.fill(stem.buffer(0.7 if back else 0.55), LEAF[0] if back else "#2f5a3b", 0.3)
+    size = 4.6 if back else 4.0
+    side = 1
+    for k, y0 in enumerate(range(4, rows - 2, 17 if back else 13)):
+        y0 += float(rng.uniform(-1.5, 1.5))
+        turn = float(rng.uniform(20, 45))
+        curl = k % 3 == 1
+        root = k % 4 == 2 and not back
+        bloom = k % 5 == 3 and not back
+        drop = float(rng.uniform(10, 17))
+        for dy in shifts:
+            y = y0 + dy
+            x = x_at(y)
+            cx, cy = x + side * (1.4 + size * 0.5), y + size * 0.3
+            blade = rotate(
+                scale(Point(cx, cy).buffer(1, 16), size * 0.55, size * 0.85), -side * turn
+            )
+            stalk = LineString([(x, y), (cx - side * size * 0.3, cy - size * 0.4)]).buffer(0.35)
+            art.fill(unary_union([blade, stalk]), green)
+            if not back:
+                art.fill(
+                    translate(scale(blade, 0.5, 0.5), side * 0.5, -0.7).intersection(blade), lit
+                )
+            if curl:  # a tendril on the far side, curling back on itself
+                arc = curve(
+                    [
+                        (x, y + 2),
+                        (x - side * 2.5, y + 3),
+                        (x - side * 3.2, y + 1.2),
+                        (x - side * 2, y + 0.6),
+                    ]
+                )
+                art.fill(arc.buffer(0.32), LEAF[2], 0.3)
+            if root:  # a thin root hanging clear of the stem, paler at the tip
+                line = curve(
+                    [
+                        (x, y),
+                        (x - side * 2.4, y + drop * 0.35),
+                        (x - side * 3.3, y + drop * 0.7),
+                        (x - side * 2.9, y + drop),
+                    ]
+                )
+                art.fill(line.buffer(0.32), "#6b4f3a", 0.3)
+                art.put(int(x - side * 2.9), int(y + drop), "#a07c5c")
+            if k % 2 == 0:  # a younger leaf on the other side of the node
+                small = rotate(
+                    scale(Point(x - side * 1.6, y - 1.2).buffer(1, 16), size * 0.32, size * 0.5),
+                    side * turn,
+                )
+                art.fill(small, green)
+            if bloom:
+                for fx, fy in ((cx + side * 1.5, cy - 2), (cx + side * 2.4, cy - 1.2)):
+                    art.put(int(fx), int(fy), "#efe6c8")
+        side = -side
+    return art
+
+
 if __name__ == "__main__":
     from neem_core.interventions import NEEM_BY_AGE
 
@@ -703,6 +777,8 @@ if __name__ == "__main__":
     for age in [0, *sorted(NEEM_BY_AGE)]:
         growth(age, tallest).svg(f"growth-y{age}.svg", "xMidYMax meet")
     stars()
+    vine(192, seed=31).svg("vine-front.svg", "xMidYMin meet")
+    vine(240, seed=47, back=True).svg("vine-back.svg", "xMidYMin meet")
     branch(seed=11).svg("neem-left.svg", "xMinYMin meet")
     right = branch(seed=23)
     right.grid = right.grid[:, ::-1].copy()

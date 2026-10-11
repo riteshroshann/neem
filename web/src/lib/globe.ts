@@ -81,13 +81,18 @@ export interface GlobeOptions {
   from?: LatLon;
   intro: boolean;
   draggable: boolean;
+  /** Degrees a second the Earth turns under a fixed sun once it has flown in; 0 holds still. */
+  spin?: number;
   onSettle?: (settled: boolean) => void;
 }
 
 export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Globe {
   const land = decodeLand();
-  const sun = unit(opts.sun);
+  let sun = unit(opts.sun);
   const ctx = canvas.getContext("2d");
+  // how far the Earth has turned under the sun, in degrees; the camera turns with the sun, so
+  // the lit side stays put on screen while the land slides west to east beneath it
+  let turned = 0;
   let camera: [number, number] = [...(opts.intro ? (opts.from ?? [8, -18]) : opts.focus)];
   let dpr = 1; // pixel ratio of the last layout; offset, cellPx and n are in its device px
   let n = 0; // cells across
@@ -139,7 +144,8 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
   }
 
   function basis() {
-    const [lat, lon] = camera;
+    const lat = camera[0];
+    const lon = camera[1] - turned;
     const p = lat * RAD;
     const l = lon * RAD;
     const c = [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
@@ -153,6 +159,7 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     frame = 0;
     if (!ctx) return;
     const { c, e, u } = basis();
+    sun = unit([opts.sun[0], opts.sun[1] - turned]);
     const buckets: number[][] = colours.map(() => []);
     const { cols, rows } = LAND;
     for (let k = 0, m = cells.length / 3; k < m; k++) {
@@ -271,6 +278,42 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
   watchRatio();
   if (opts.intro) flyTo(opts.focus, 3200);
 
+  // The turn: frame-rate independent, easing up to speed after the fly-in, paused while
+  // dragged, off screen or in a hidden tab, and never for people who ask for less motion.
+  const spin = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : (opts.spin ?? 0);
+  let held = false;
+  let seen = true;
+  let last = 0;
+  let spun = 0;
+  let turning = 0;
+  const turn = (now: number) => {
+    turning = 0;
+    if (!seen || document.hidden) return;
+    const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+    last = now;
+    if (settled && !held) {
+      spun = Math.min(1, spun + dt / 1.5);
+      turned += spin * dt * spun * spun * (3 - 2 * spun);
+      draw();
+    }
+    turning = requestAnimationFrame(turn);
+  };
+  const play = () => {
+    if (spin && !turning) {
+      last = 0;
+      turning = requestAnimationFrame(turn);
+    }
+  };
+  const watch = new IntersectionObserver(([entry]) => {
+    seen = entry?.isIntersecting ?? true;
+    if (seen) play();
+  });
+  if (spin) {
+    watch.observe(canvas);
+    document.addEventListener("visibilitychange", play);
+    play();
+  }
+
   // Drag to turn the Earth; it drifts home after a pause. Only the primary pointer counts, and
   // a press becomes a drag past SLOP, so a tap or a page scroll leaves the labels alone.
   let press: { id: number; x: number; y: number; cam?: [number, number] } | null = null;
@@ -291,7 +334,8 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
       cancelAnimationFrame(tween);
       clearTimeout(back);
       press.cam = [...camera];
-      setSettled(false);
+      held = true;
+      if (!spin) setSettled(false);
     }
     const k = 180 / Math.PI / ((canvas.clientWidth / 2) * RADIUS);
     camera = [Math.max(-70, Math.min(70, press.cam[0] + dy * k)), press.cam[1] - dx * k];
@@ -301,7 +345,8 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     if (!press || ev.pointerId !== press.id) return;
     const dragged = press.cam !== undefined;
     press = null;
-    if (dragged) back = window.setTimeout(home, 1600);
+    held = false;
+    if (dragged && !spin) back = window.setTimeout(home, 1600);
   };
   if (opts.draggable) {
     canvas.addEventListener("pointerdown", onDown);
@@ -326,6 +371,9 @@ export function createGlobe(canvas: HTMLCanvasElement, opts: GlobeOptions): Glob
     },
     destroy() {
       resize.disconnect();
+      watch.disconnect();
+      document.removeEventListener("visibilitychange", play);
+      cancelAnimationFrame(turning);
       ratio?.removeEventListener("change", onRatio);
       cancelAnimationFrame(tween);
       cancelAnimationFrame(frame);

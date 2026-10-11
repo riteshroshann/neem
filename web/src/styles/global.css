@@ -201,7 +201,7 @@ figcaption {
   border-top: 1px solid var(--line-strong);
 }
 
-/* registration marks where a section rule meets the page's guide lines */
+/* registration marks at the two ends of a section rule */
 .rule::before,
 .rule::after {
   content: "";
